@@ -1,2 +1,12 @@
 #java class files
 *.class
+
+#data files (to prevent accidental upload)
+*.xls
+*.xlsx
+*.csv
+*.accdb
+
+#Tableau files (to prevent accidental upload)
+*.twb
+*.hyper
