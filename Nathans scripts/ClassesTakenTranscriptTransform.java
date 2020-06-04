@@ -5,6 +5,8 @@ import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.IOException;
 
+import java.util.Collections;
+import java.util.LinkedList;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.TreeSet;
@@ -14,9 +16,10 @@ import java.util.Scanner;
  * A java command line script to take the reduced form of Classes Taken.xlsx, and convert them into single transcripts.
  * There are four flags that are available
  * -noCOE means any student who has ever taken a COE course is excluded from the resulting set
- * -allMandatory means any student who has not completed all mandatory courses is excluded from the resulting set
+ * -allMandatory means any student who has not attempted all mandatory courses is excluded from the resulting set
  * -mandatoryOnly means student transcripts will only contain mention of mandatory courses.  No electives will be included.
  * -time=<time> means which grade will be taken if repeats are found.  The options are "first", "last", "best", "average", "lastExceptFailing".  If the flag is not used, the default is all grades are reported.
+ * -timeAsFeature means the semester that a class is taken will be converted into a feature that is relative to the first semester.
  * -gpa means letter grades are converted to GPA values.
  * Finally, if the file name extension is ".elki", it will output a file that is formatted to allow ELKI to read it.  Note that this is only supported with all flags set, since ELKI requires each vector to be the same.  Other options may not gurantee this.
  * NOTE: Assumption is made that catalog number is sufficient to describe the class, when in fact, you need subject + catalog number.
@@ -35,6 +38,7 @@ public class ClassesTakenTranscriptTransform
 	private static boolean allMandatoryCoursesFlag = false;		//removes students who have not taken all mandatory CS classes
 	private static boolean mandatoryOnlyFlag = false;		//removes classes that are not mandatory CS courses
 	private static int timeFlag = 0;				//can remove course repeats when set on the command line
+	private static boolean timeAsFeatureFlag = false;		//adds a feature/attribute representing the number of semesters after the first that a class was taken
 	private static boolean elkiOutputFlag = false;			//outputs an elki-formatted input file
 	private static String delimiter = ",";				//default delimiter
 	private static boolean gpaFlag = false;				//converts letter grades into GPA values
@@ -56,7 +60,7 @@ public class ClassesTakenTranscriptTransform
 		{
 			if(args.length == 0 || !args[1].equals("-help"))
 			{
-				System.out.println("Usage:\tNAMEOFPROGRAM -help\n\tNAMEOFPROGRAM <input file> <output file> [-noCOE -allMandatory -mandatoryOnly]");
+				System.out.println("Usage:\tNAMEOFPROGRAM -help\n\tNAMEOFPROGRAM <input file> <output file> [-noCOE -allMandatory -mandatoryOnly -time=<time>[first/last/best/average/lastExceptFailing] -gpa]");
 			}
 			return;
 		}
@@ -113,6 +117,9 @@ public class ClassesTakenTranscriptTransform
 				case "-time=lastExceptFailing":
 					timeFlag = 5;
 					break;
+				case "-timeAsFeature":
+					timeAsFeatureFlag = true;
+					break;
 				case "-gpa":
 					gpaFlag = true;
 					break;
@@ -144,8 +151,9 @@ public class ClassesTakenTranscriptTransform
 		//transcript builder
 		final HashMap<String,StringBuilder> studentToClasses = new HashMap<>();
 		final HashMap<String,boolean[]> mandatoryClassTracker = new HashMap<>();
-		final HashMap<String,HashMap<String,String[]>> timedTracker = new HashMap<>(); //Student ID --> (class --> {important factor (semester/grade/something else), row string})
+		final HashMap<String,HashMap<String,String[]>> semesterRepeatClassTracker = new HashMap<>(); //Student ID --> (class --> {important factor (semester/grade/something else), row string})
 		final HashSet<String> coeTracker = new HashSet<>();
+		final HashMap<String,LinkedList<Integer>> relativeTimeTracker = new HashMap<>(); //Student ID --> semesters of entire class listing (in the order they were inputted into the system (MAY WANT TO CHANGE THIS)).
 		String header = "";
 
 		try(final BufferedReader reader = new BufferedReader(new FileReader(inputFile)))
@@ -177,14 +185,14 @@ public class ClassesTakenTranscriptTransform
 							//not sufficient, given the ordering is not preserved correctly
 							if(elkiOutputFlag)
 							{
-								row.append(delimiter + (gpaFlag ? (letterToGPA.containsKey(vals[vals.length-1]) ? letterToGPA.get(vals[vals.length-1]) : "0.0") : vals[vals.length-1]));
+								row.append(delimiter + (gpaFlag ? (letterToGPA.containsKey(vals[vals.length-1]) ? letterToGPA.get(vals[vals.length-1]) : "0.0") : vals[vals.length-1]) + (timeAsFeatureFlag ? delimiter + vals[1] : ""));
 							}
 							else
 							{
 								for(int i = 1; i < vals.length; i++)
 								{
-									//NOT GENERALIZED
-									if(gpaFlag && i == 4)
+									//Assumes grade is the last element
+									if(gpaFlag && i == vals.length-1)
 									{
 										row.append(delimiter + (letterToGPA.containsKey(vals[i]) ? letterToGPA.get(vals[i]) : "0.0"));
 									}
@@ -195,10 +203,17 @@ public class ClassesTakenTranscriptTransform
 								}
 							}
 							studentToClasses.put(vals[0],row);
+
+							if(timeAsFeatureFlag) //NOT GENERALIZED
+							{
+								LinkedList<Integer> listOfTimes = relativeTimeTracker.containsKey(vals[0]) ? relativeTimeTracker.get(vals[0]) : new LinkedList<>();
+								listOfTimes.add(Integer.parseInt(vals[1]));
+								relativeTimeTracker.put(vals[0],listOfTimes);
+							}
 						}
 						break;
 					case 2: //NOT GENERALIZED
-						final HashMap<String,String[]> classToFactor = timedTracker.containsKey(vals[0]) ? timedTracker.get(vals[0]) : new HashMap<>();
+						final HashMap<String,String[]> classToFactor = semesterRepeatClassTracker.containsKey(vals[0]) ? semesterRepeatClassTracker.get(vals[0]) : new HashMap<>();
 						if(!mandatoryOnlyFlag || isMandatoryCourse(vals[2])) //skip courses that are non-mandatory, if the flag is set
 						{
 							if(!classToFactor.containsKey(vals[2]) || classToFactor.get(vals[2])[0].compareTo(vals[1]) < 0) //either does not exist, or the semester is later than the other instance
@@ -206,14 +221,14 @@ public class ClassesTakenTranscriptTransform
 								String rowStr = "";
 								if(elkiOutputFlag)
 								{
-									rowStr += delimiter + (gpaFlag ? (letterToGPA.containsKey(vals[vals.length-1]) ? letterToGPA.get(vals[vals.length-1]) : "0.0") : vals[vals.length-1]);
+									rowStr += delimiter + (gpaFlag ? (letterToGPA.containsKey(vals[vals.length-1]) ? letterToGPA.get(vals[vals.length-1]) : "0.0") : vals[vals.length-1]) + (timeAsFeatureFlag ? delimiter + vals[1] : "");
 								}
 								else
 								{
 									for(int i = 1; i < vals.length; i++)
 									{
-										//NOT GENERALIZED
-										if(gpaFlag && i == 4)
+										//Assumes grade is the last element
+										if(gpaFlag && i == vals.length-1)
 										{
 											rowStr += delimiter + (letterToGPA.containsKey(vals[i]) ? letterToGPA.get(vals[i]) : "0.0");
 										}
@@ -222,10 +237,16 @@ public class ClassesTakenTranscriptTransform
 											rowStr += delimiter + vals[i];
 										}
 									}
-
 								}
 								classToFactor.put(vals[2],new String[]{vals[1],rowStr});
-								timedTracker.put(vals[0],classToFactor);
+								semesterRepeatClassTracker.put(vals[0],classToFactor);
+								
+								if(timeAsFeatureFlag) //NOT GENERALIZED
+								{
+									LinkedList<Integer> listOfTimes = relativeTimeTracker.containsKey(vals[0]) ? relativeTimeTracker.get(vals[0]) : new LinkedList<>();
+									listOfTimes.add(Integer.parseInt(vals[1]));
+									relativeTimeTracker.put(vals[0],listOfTimes);
+								}
 							}
 						}
 						break;
@@ -274,12 +295,12 @@ public class ClassesTakenTranscriptTransform
 
 		if(timeFlag != 0)
 		{
-			for(final String studentID : new TreeSet<String>(timedTracker.keySet())) //sort in lexicographic order
+			for(final String studentID : semesterRepeatClassTracker.keySet())
 			{
 				final StringBuilder row = new StringBuilder();
 				//if(!mandatoryOnlyFlag || isMandatoryCourse(vals[2])) //NOT GENERALIZED: skip courses that are non-mandatory, if the flag is set
 				//{
-					final HashMap<String,String[]> classToFactor = timedTracker.get(studentID);
+					final HashMap<String,String[]> classToFactor = semesterRepeatClassTracker.get(studentID);
 					//sorting by class num
 					for(final String classNum : new TreeSet<String>(classToFactor.keySet())) // sort by class num value
 					{
@@ -287,6 +308,37 @@ public class ClassesTakenTranscriptTransform
 					}
 					studentToClasses.put(studentID,row);
 				//}
+			}
+		}
+
+		if(timeAsFeatureFlag)
+		{
+			for(final String studentID : relativeTimeTracker.keySet())
+			{
+				final LinkedList<Integer> listOfTimes = relativeTimeTracker.get(studentID);
+				final int minimum = Collections.min(listOfTimes);
+				final String[] vals = studentToClasses.get(studentID).toString().split(delimiter);
+				final StringBuilder row = new StringBuilder();
+				for(int i = 0; i < vals.length; i++)
+				{
+					boolean found = false;
+					for(int j = 0; j < listOfTimes.size(); j++)
+					{
+						if(listOfTimes.get(j).toString().equals(vals[i]))
+						{
+							found = true;
+							break;
+						}
+					}
+					row.append(delimiter + (found ? semesterDifference(minimum, Integer.parseInt(vals[i])) : vals[i]));
+				}
+				studentToClasses.put(studentID,row);
+						
+				//for(int i = 0; i < listOfTimes.size(); i++)
+				//{
+				//	listOfTimes.set(i,listOfTimes.get(i)-minimum);
+				//}
+				//relativeTimeTracker.put(listOfTimes);
 			}
 		}
 
@@ -316,7 +368,7 @@ public class ClassesTakenTranscriptTransform
 					if(elkiOutputFlag)
 					{
 						writer.write(studentToClasses.get(key).toString().trim() + "\n");
-						System.out.println(studentToClasses.get(key).toString().trim());
+						//System.out.println(studentToClasses.get(key).toString().trim());
 					}
 					else
 					{
@@ -331,6 +383,12 @@ public class ClassesTakenTranscriptTransform
 			System.err.println("Error while writing to output file.");
 			e.printStackTrace();
 		}
+	}
+
+	private static int semesterDifference(final int earlySemester, final int lateSemester)
+	{
+		final int difference = lateSemester - earlySemester;
+		return (difference - (difference/10)) / 3;
 	}
 
 	private static boolean isMandatoryCourse(final String courseNum)
