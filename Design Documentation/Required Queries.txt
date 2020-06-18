@@ -5,13 +5,26 @@ Y - selected number of semesters lee-way
 T - Current semester in STUDENT's curriculum
 S - selected number of semesters to look ahead
 
-SELECT <student's grades S semesters after T> FROM <students> WHERE <for each class in STUDENT's history: 
-                                                                            student took class within Y relative semesters of STUDENT
-                                                                            && student got grade within X% of STUDENT's grade in class>;
+--Find all students who are close enough to selected student's history, then show future grades and classes
+SELECT <Student's Grades and Classes S semesters after T> FROM <students> WHERE <for each Class in STUDENT's history: 
+                                                                            Student took Class within Y relative semesters of STUDENT
+                                                                            && Student's last Grade was within X% of STUDENT's Grade in Class>;
 
-SELECT <student's grades S semesters after T> FROM <students> WHERE <for each class in STUDENT's history: 
-                                                                            student took class within Y relative semesters of STUDENT
-                                                                            && student got grade within X% of STUDENT's grade in class> 
+--Find all students who are close enough to selected student's history who have taken all mandatory classes, then show future grades and classes. 
+SELECT <Student's Grades and Classes S semesters after T> FROM <students> WHERE <for each Class in STUDENT's history: 
+                                                                            Student took Class within Y relative semesters of STUDENT
+                                                                            && Student's last Grade was within X% of STUDENT's Grade in Class> 
+    AND <full history contains all mandatory classes>;
+
+--Find all students who are close enough to selected student's history (including repeated classes), then show future grades and classes
+SELECT <Student's Grades and Classes S semesters after T> FROM <students> WHERE <for each Class in STUDENT's history: 
+                                                                            Student took Class within Y relative semesters of STUDENT
+                                                                            && Student's Grade was within X% of STUDENT's Grade in Class>;
+
+--Find all students who are close enough to selected student's history who have taken all mandatory classes (including repeated classes), then show future grades and classes. 
+SELECT <Student's Grades and Classes S semesters after T> FROM <students> WHERE <for each Class in STUDENT's history: 
+                                                                            Student took Class within Y relative semesters of STUDENT
+                                                                            && Student's Grade was within X% of STUDENT's Grade in Class> 
     AND <full history contains all mandatory classes>;
 --For perfect match set X to 100% and Y to 0
 
@@ -24,3 +37,9 @@ SELECT * FROM <grade records> WHERE <all grades from one course>
 
 SELECT * FROM <grade records> WHERE <all grades from one student>
 
+--list of courses that a student is taking in a given semester
+
+
+Future work
+
+--list of students who have repeated courses (and those courses)
