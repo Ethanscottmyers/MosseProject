@@ -1,9 +1,26 @@
-<> are descriptions or pseudocode, everything else is code
+<> are descriptions or pseudocode
+STUDENT - selected student
+X - selected percent match of grades
+Y - selected number of semesters lee-way
+T - Current semester in STUDENT's curriculum
+S - selected number of semesters to look ahead
 
-SELECT * FROM <grade records> WHERE <history up to certain point> <matches> <student’s history>;
-SELECT * FROM <grade records> WHERE < history up to certain point> <is X% same as> <student’s history>;
-SELECT * FROM <grade records> WHERE <history up to certain point> <matches> <student’s history> AND <full history contains all mandatory classes>;
-SELECT * FROM <grade records> WHERE <history up to certain point> <is X% same as> <student’s history> AND <full history contains all mandatory classes>;
+SELECT <student's grades S semesters after T> FROM <students> WHERE <for each class in STUDENT's history: 
+                                                                            student took class within Y relative semesters of STUDENT
+                                                                            && student got grade within X% of STUDENT's grade in class>;
+
+SELECT <student's grades S semesters after T> FROM <students> WHERE <for each class in STUDENT's history: 
+                                                                            student took class within Y relative semesters of STUDENT
+                                                                            && student got grade within X% of STUDENT's grade in class> 
+    AND <full history contains all mandatory classes>;
+--For perfect match set X to 100% and Y to 0
 
 SELECT * FROM <classes> ORDER BY catalogNumber;
- 
+--Generate pre-requisite graph locally?
+
+INSERT INTO <grade records> <new grades>
+
+SELECT * FROM <grade records> WHERE <all grades from one course>
+
+SELECT * FROM <grade records> WHERE <all grades from one student>
+
