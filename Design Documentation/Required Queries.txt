@@ -1,0 +1,9 @@
+<> are descriptions or pseudocode, everything else is code
+
+SELECT * FROM <grade records> WHERE <history up to certain point> <matches> <student’s history>;
+SELECT * FROM <grade records> WHERE < history up to certain point> <is X% same as> <student’s history>;
+SELECT * FROM <grade records> WHERE <history up to certain point> <matches> <student’s history> AND <full history contains all mandatory classes>;
+SELECT * FROM <grade records> WHERE <history up to certain point> <is X% same as> <student’s history> AND <full history contains all mandatory classes>;
+
+SELECT * FROM <classes> ORDER BY catalogNumber;
+ 
