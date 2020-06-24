@@ -37,7 +37,7 @@ SELECT * FROM <grade records> WHERE <all grades from one course>
 
 SELECT * FROM <grade records> WHERE <all grades from one student>
 
---list of courses that a student is taking in a given semester
+SELECT * FROM <grade records> WHERE <all grades from one student> AND <all grades from certain semester>
 
 
 Future work
