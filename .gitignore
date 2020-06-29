@@ -10,3 +10,5 @@
 #Tableau files (to prevent accidental upload)
 *.twb
 *.hyper
+
+classes_taken.csv
