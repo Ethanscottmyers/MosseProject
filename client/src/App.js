@@ -13,9 +13,7 @@ function App() {
 
   return (
     <div className="App">
-      <header className="App-header">
-        <p className="App-intro">{apiResponse}</p>
-      </header>
+      <p className="App-intro">{apiResponse}</p>
     </div>
   );
 }

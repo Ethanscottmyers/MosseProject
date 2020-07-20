@@ -12,16 +12,23 @@ const connection = mysql.createConnection({
   database: "GradePredictorDB",
 });
 
-connection.query("SELECT * FROM Grades", (err, results, fields) => {
-  if (err) throw err;
-  console.log(results[0]);
-  data = "";
-  for (let i = 0; i < results.length; i++) {
-    data += JSON.stringify(results[i]);
-    data += "\n";
+connection.query(
+  `SELECT Grades.studentID, startTerm, Grades.catalogNumber, title, term, termsFromStudentStart, grade 
+  FROM Grades
+  INNER JOIN Students ON Grades.studentID = Students.studentID
+  INNER JOIN Courses ON Grades.catalogNumber = Courses.catalogNumber
+  ORDER BY term ASC, Grades.catalogNumber ASC, Grades.studentID ASC`,
+  (err, results, fields) => {
+    if (err) throw err;
+    data = `Number of rows returned: ${results.length}
+    `;
+    for (let i = 0; i < results.length; i++) {
+      data += JSON.stringify(results[i]);
+      data += "\n";
+    }
+    // console.log(fields);
   }
-  // console.log(fields);
-});
+);
 
 router.get("/", (req, res, next) => {
   res.send(data);

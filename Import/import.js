@@ -9,6 +9,7 @@ class Grade {
     this.catalogNumber = catalogNumber;
     this.grade = grade;
     this.subject = subject;
+    this.termsFromStudentStart;
   }
 }
 
@@ -17,6 +18,7 @@ class Student {
     this.id = id;
     this.startTerm = startTerm;
     this.grades = new Array(0);
+    this.allMandatory;
   }
 }
 
@@ -71,16 +73,25 @@ connection.query("SELECT * FROM Grades", (err, results, fields) => {
       if (DEBUG)
         console.log("number of CS only students: " + csStudents.length);
 
-      //Calculate how far into each student's history each of their classes are.
+      //Calculate how far into each student's history each of their classes are and determine if they have completed
+      //all mandatory CS classes.
+      let numCompleted = 0;
       for (let student of csStudents) {
         calcSemesters(student);
+        determineAllMandatory(student);
+        if (student.allMandatory) numCompleted++;
       }
-
-      let studentSQL = "INSERT INTO Students (studentID, startTerm) VALUES ?";
+      if (DEBUG)
+        console.log(
+          "number of students who completed all mandatory courses: " +
+            numCompleted
+        );
+      let studentSQL =
+        "INSERT INTO Students (studentID, startTerm, allMandatory) VALUES ?";
       let studentValues = generateStudentValues(csStudents);
 
       let gradeSQL =
-        "INSERT INTO Grades (catalogNumber, studentID, grade, term) VALUES ?";
+        "INSERT INTO Grades (catalogNumber, studentID, grade, term, termsFromStudentStart) VALUES ?";
       let gradeValues = generateGradeValues(csStudents);
 
       //Insert student values into database
@@ -193,11 +204,39 @@ function calcSemesters(student) {
   }
 }
 
+//Checks whether given student has completed all mandatory classes.
+function determineAllMandatory(student) {
+  listOfCourses = {};
+  for (let grade of student.grades) {
+    if (!(grade.catalogNumber in listOfCourses)) {
+      listOfCourses[grade.catalogNumber] = true;
+    }
+  }
+  if (
+    401 in listOfCourses &&
+    441 in listOfCourses &&
+    445 in listOfCourses &&
+    447 in listOfCourses &&
+    449 in listOfCourses &&
+    1501 in listOfCourses &&
+    1502 in listOfCourses &&
+    1550 in listOfCourses
+  ) {
+    student.allMandatory = true;
+  } else {
+    student.allMandatory = false;
+  }
+}
+
 //Generate sql insert code for student table using array of students provided.
 function generateStudentValues(students) {
   let result = [];
   for (let i = 0; i < students.length; i++) {
-    result.push([students[i].id, students[i].startTerm]);
+    result.push([
+      students[i].id,
+      students[i].startTerm,
+      students[i].allMandatory,
+    ]);
   }
   return result;
 }
@@ -205,12 +244,17 @@ function generateStudentValues(students) {
 //Generate sql insert code for grades table using array of students provided
 function generateGradeValues(students) {
   let result = [];
-  console.log(students.length);
   for (let i = 0; i < students.length; i++) {
     let student = students[i];
     for (let j = 0; j < student.grades.length; j++) {
       let grade = student.grades[j];
-      result.push([grade.catalogNumber, student.id, grade.grade, grade.term]);
+      result.push([
+        grade.catalogNumber,
+        student.id,
+        grade.grade,
+        grade.term,
+        grade.termsFromStudentStart,
+      ]);
     }
   }
   return result;
