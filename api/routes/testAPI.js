@@ -1,8 +1,7 @@
 var express = require("express");
 var router = express.Router();
 var mysql = require("mysql2");
-
-var data;
+const { isNull } = require("util");
 
 const connection = mysql.createConnection({
   host: "localhost",
@@ -12,24 +11,37 @@ const connection = mysql.createConnection({
   database: "GradePredictorDB",
 });
 
-connection.query(
-  `SELECT Grades.studentID, startTerm, Grades.catalogNumber, title, term, termsFromStudentStart, grade 
-  FROM Grades
-  INNER JOIN Students ON Grades.studentID = Students.studentID
-  INNER JOIN Courses ON Grades.catalogNumber = Courses.catalogNumber
-  ORDER BY term ASC, Grades.catalogNumber ASC, Grades.studentID ASC`,
-  (err, results, fields) => {
-    if (err) throw err;
-    data = `Number of rows returned: ${results.length}`;
-    for (let i = 0; i < results.length; i++) {
-      data += JSON.stringify(results[i]);
-      data += "\n";
-    }
-  }
-);
-
 router.get("/", (req, res, next) => {
-  res.send(data);
+  let id = req.query.id;
+  let sem = req.query.sem;
+  let leeway = req.query.leeway;
+  let percent = req.query.percent;
+  connection.query(
+    `SELECT * FROM Grades WHERE studentID = '${id}' AND termsFromStudentStart <= ${sem};`,
+    (err, results, fields) => {
+      if (err) throw err;
+      if (isNull(results)) throw "Error! Invalid student ID. ";
+      // historyQuery = `SELECT * FROM Grades WHERE studentID IN \n(SELECT studentID FROM Students WHERE studentID != '${id}' AND EXISTS \n`;
+      historyQuery = `SELECT studentID FROM Students WHERE studentID != '${id}' AND EXISTS \n`;
+      for (let i = 0; i < results.length; i++) {
+        let grade = results[i];
+        historyQuery +=
+          `(SELECT 1 FROM Grades WHERE Grades.studentID = Students.studentID AND catalogNumber = ${grade.catalogNumber} ` +
+          `AND ABS(termsFromStudentStart - ${grade.termsFromStudentStart}) <= ${leeway} ` +
+          `AND (LEAST(parseGrade('${grade.grade}'), parseGrade(grade)) / GREATEST(parseGrade('${grade.grade}'), parseGrade(grade))) >= ${percent}) `;
+        if (i < results.length - 1) {
+          historyQuery += `AND EXISTS\n`;
+        } else {
+          // historyQuery += `\n) ORDER BY studentID ASC, catalogNumber ASC, term ASC;`;
+          historyQuery += `ORDER BY studentID;`;
+        }
+      }
+      connection.query(historyQuery, (err, results, fields) => {
+        if (err) throw err;
+        res.send(results);
+      });
+    }
+  );
 });
 
 module.exports = router;

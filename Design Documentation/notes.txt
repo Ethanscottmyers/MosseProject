@@ -1,1 +1,4 @@
 add option to only search by mandatory classes
+
+http://localhost:9000/testAPI?id=1&sem=3&leeway=1&percent=1 
+works!!!
