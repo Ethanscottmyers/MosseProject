@@ -20,13 +20,11 @@ connection.query(
   ORDER BY term ASC, Grades.catalogNumber ASC, Grades.studentID ASC`,
   (err, results, fields) => {
     if (err) throw err;
-    data = `Number of rows returned: ${results.length}
-    `;
+    data = `Number of rows returned: ${results.length}`;
     for (let i = 0; i < results.length; i++) {
       data += JSON.stringify(results[i]);
       data += "\n";
     }
-    // console.log(fields);
   }
 );
 

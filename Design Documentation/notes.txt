@@ -1,0 +1,1 @@
+add option to only search by mandatory classes
