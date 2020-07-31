@@ -1,4 +1,9 @@
 add option to only search by mandatory classes
+fix confusion with leeway and percent (leeway higher is bigger gap, percent lower is bigger gap)
 
 http://localhost:9000/testAPI?id=1&sem=3&leeway=1&percent=1 
 works!!!
+
+by category (concentration)?
+when zoom in on a class, show multiple diagrams by distance from current student
+default use only mandatory courses in history, toggle for not
