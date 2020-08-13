@@ -3,6 +3,58 @@ import axios from "axios";
 import Papa from "papaparse";
 import "./App.css";
 
+class Grade {
+  constructor(term, catalogNumber, grade) {
+    this.term = term;
+    this.catalogNumber = catalogNumber;
+    this.grade = grade;
+  }
+}
+
+class Student {
+  constructor(id, startTerm) {
+    this.id = id;
+    this.startTerm = startTerm;
+    this.grades = new Array(0);
+  }
+}
+
+function convertToStudents(history) {
+  let currentStudents = {};
+
+  for (let record of history) {
+    let studentID = record.studentID;
+    let catalogNumber = record.catalogNumber;
+    let term = record.term;
+    let grade = record.grade;
+    let student;
+
+    if (!(studentID in currentStudents)) {
+      student = new Student(studentID, term);
+      currentStudents[studentID] = student;
+    } else {
+      student = currentStudents[studentID];
+    }
+    if (student.startTerm > term) {
+      student.startTerm = term;
+    }
+    student.grades.push(new Grade(term, catalogNumber, grade));
+  }
+
+  //Now find termsFromStudentStart for all grades
+  let ids = Object.keys(currentStudents);
+  for (let i = 0; i < ids.length; i++) {
+    let currentStudent = currentStudents[ids[i]];
+    for (let record of currentStudent.grades) {
+      let difference = record.term - currentStudent.startTerm;
+      difference = Math.floor((difference - Math.floor(difference / 10)) / 3);
+      record.termsFromStudentStart = difference;
+    }
+  }
+
+  return currentStudents;
+}
+
 function parseFileAsync(file) {
   return new Promise((resolve, reject) => {
     Papa.parse(file, {
@@ -20,10 +72,10 @@ function parseFileAsync(file) {
 function App() {
   const [apiResponse, setAPIResponse] = useState("");
   const [id, setID] = useState("1");
-  const [currentSemester, setCurrentSemester] = useState(0);
-  const [resultSemester, setResultSemester] = useState(0);
-  const [leeway, setLeeway] = useState(0);
-  const [percentDifference, setPercentDifference] = useState(0.0);
+  const [currentSemesterSTR, setCurrentSemester] = useState(0);
+  const [resultSemesterSTR, setResultSemester] = useState(0);
+  const [leewaySTR, setLeeway] = useState(0);
+  const [percentDifferenceSTR, setPercentDifference] = useState(0.0);
   const fileInput = useRef(null);
 
   async function submitButton(event) {
@@ -31,12 +83,48 @@ function App() {
     event.preventDefault();
     try {
       let history = await parseFileAsync(fileInput.current.files[0]);
-      console.log(history);
-      let res = await axios.get(
-        `http://localhost:9000/database-results?id=${id}&curr=${currentSemester}&` +
-          `resSem=${resultSemester}&leeway=${leeway}&percent=${percentDifference}`
-      );
-      setAPIResponse(res.data);
+      let currentStudents = convertToStudents(history);
+      let currentSemester = parseInt(currentSemesterSTR);
+      let resultSemester = parseInt(resultSemesterSTR);
+      let leeway = parseInt(leewaySTR);
+      let percentDifference = parseFloat(percentDifferenceSTR);
+
+      let query =
+        `SELECT * FROM Grades WHERE termsFromStudentStart > ${currentSemester} AND termsFromStudentStart <= ${
+          currentSemester + resultSemester
+        } AND studentID IN \n` +
+        `(SELECT studentID FROM Students WHERE studentID != '${id}' AND EXISTS \n`;
+      let student = currentStudents[id];
+      let grades = student.grades;
+      for (let i = 0; i < grades.length; i++) {
+        let grade = grades[i];
+        if (grade.termsFromStudentStart > currentSemester) continue;
+        query +=
+          `(SELECT 1 FROM Grades WHERE Grades.studentID = Students.studentID AND catalogNumber = ${grade.catalogNumber} ` +
+          `AND ABS(termsFromStudentStart - ${grade.termsFromStudentStart}) <= ${leeway} ` +
+          `AND IF((parseGrade('${grade.grade}') = 0 AND parseGrade(grade) = 0), TRUE, ` +
+          `ABS(parseGrade('${grade.grade}') - parseGrade(grade)) / ((parseGrade('${grade.grade}')+parseGrade(grade))/2)` +
+          `<= ${percentDifference})) `;
+        if (i < grades.length - 1) {
+          query += `AND EXISTS\n`;
+        } else {
+          query += `\n) ORDER BY studentID ASC, catalogNumber ASC, term ASC;`;
+          // query += `ORDER BY studentID);`;
+        }
+      }
+      // console.log(query);
+      let res = await axios.post(`http://localhost:9000/database-results`, {
+        query: query,
+      });
+      console.log(res.data);
+      let result = "";
+      for (let i = 0; i < res.data.length; i++) {
+        let record = res.data[i];
+        result = result.concat(
+          `id: ${record.studentID}, catalogNumber: ${record.catalogNumber}, grade: ${record.grade}\n`
+        );
+      }
+      setAPIResponse(result);
     } catch (error) {
       throw error;
     }
@@ -45,6 +133,7 @@ function App() {
   function clearButton() {
     setAPIResponse("");
   }
+
   return (
     <div>
       <form onSubmit={submitButton}>
@@ -69,7 +158,7 @@ function App() {
           min="0"
           id="currentSemester"
           name="currentSemester"
-          value={currentSemester}
+          value={currentSemesterSTR}
           onChange={(event) => {
             setCurrentSemester(event.target.value);
           }}
@@ -85,7 +174,7 @@ function App() {
           min="0"
           id="resultSemester"
           name="resultSemester"
-          value={resultSemester}
+          value={resultSemesterSTR}
           onChange={(event) => {
             setResultSemester(event.target.value);
           }}
@@ -100,7 +189,7 @@ function App() {
           type="number"
           id="leeway"
           name="leeway"
-          value={leeway}
+          value={leewaySTR}
           onChange={(event) => {
             setLeeway(event.target.value);
           }}
@@ -116,7 +205,7 @@ function App() {
           step="any"
           id="percentDifference"
           name="percentDifference"
-          value={percentDifference}
+          value={percentDifferenceSTR}
           onChange={(event) => {
             setPercentDifference(event.target.value);
           }}
