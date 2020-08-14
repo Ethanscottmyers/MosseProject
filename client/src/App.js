@@ -19,13 +19,15 @@ class Student {
   }
 }
 
+const mandatoryCourses = [401, 441, 445, 447, 449, 1501, 1502, 1550];
+
 function convertToStudents(history) {
   let currentStudents = {};
 
   for (let record of history) {
     let studentID = record.studentID;
-    let catalogNumber = record.catalogNumber;
-    let term = record.term;
+    let catalogNumber = parseInt(record.catalogNumber);
+    let term = parseInt(record.term);
     let grade = record.grade;
     let student;
 
@@ -71,11 +73,12 @@ function parseFileAsync(file) {
 
 function App() {
   const [apiResponse, setAPIResponse] = useState("");
-  const [id, setID] = useState("1");
+  const [id, setID] = useState("");
   const [currentSemesterSTR, setCurrentSemester] = useState(0);
   const [resultSemesterSTR, setResultSemester] = useState(0);
   const [leewaySTR, setLeeway] = useState(0);
   const [percentDifferenceSTR, setPercentDifference] = useState(0.0);
+  const [onlyMandatorySTR, setOnlyMandatory] = useState("true");
   const fileInput = useRef(null);
 
   async function submitButton(event) {
@@ -88,35 +91,32 @@ function App() {
       let resultSemester = parseInt(resultSemesterSTR);
       let leeway = parseInt(leewaySTR);
       let percentDifference = parseFloat(percentDifferenceSTR);
+      let mandatory = onlyMandatorySTR === "true";
 
       let query =
         `SELECT * FROM Grades WHERE termsFromStudentStart > ${currentSemester} AND termsFromStudentStart <= ${
           currentSemester + resultSemester
         } AND studentID IN \n` +
-        `(SELECT studentID FROM Students WHERE studentID != '${id}' AND EXISTS \n`;
+        `(SELECT studentID FROM Students WHERE studentID != '${id}'\n`;
       let student = currentStudents[id];
       let grades = student.grades;
       for (let i = 0; i < grades.length; i++) {
         let grade = grades[i];
         if (grade.termsFromStudentStart > currentSemester) continue;
+        if (mandatory && !mandatoryCourses.includes(grade.catalogNumber))
+          continue;
         query +=
-          `(SELECT 1 FROM Grades WHERE Grades.studentID = Students.studentID AND catalogNumber = ${grade.catalogNumber} ` +
+          ` AND EXISTS (SELECT 1 FROM Grades WHERE Grades.studentID = Students.studentID AND catalogNumber = ${grade.catalogNumber} ` +
           `AND ABS(termsFromStudentStart - ${grade.termsFromStudentStart}) <= ${leeway} ` +
           `AND IF((parseGrade('${grade.grade}') = 0 AND parseGrade(grade) = 0), TRUE, ` +
           `ABS(parseGrade('${grade.grade}') - parseGrade(grade)) / ((parseGrade('${grade.grade}')+parseGrade(grade))/2)` +
-          `<= ${percentDifference})) `;
-        if (i < grades.length - 1) {
-          query += `AND EXISTS\n`;
-        } else {
-          query += `\n) ORDER BY studentID ASC, catalogNumber ASC, term ASC;`;
-          // query += `ORDER BY studentID);`;
-        }
+          `<= ${percentDifference}))\n`;
       }
+      query += `\n) ORDER BY studentID ASC, catalogNumber ASC, term ASC;`;
       // console.log(query);
       let res = await axios.post(`http://localhost:9000/database-results`, {
         query: query,
       });
-      console.log(res.data);
       let result = "";
       for (let i = 0; i < res.data.length; i++) {
         let record = res.data[i];
@@ -132,6 +132,12 @@ function App() {
 
   function clearButton() {
     setAPIResponse("");
+    setID("");
+    setCurrentSemester(0);
+    setResultSemester(0);
+    setLeeway(0);
+    setPercentDifference(0);
+    setOnlyMandatory("");
   }
 
   return (
@@ -211,13 +217,30 @@ function App() {
           }}
         />
         <br />
+        <label htmlFor="mandatory">Use Only Mandatory Courses: </label>
+        <input
+          type="checkbox"
+          id="mandatory"
+          name="mandatory"
+          checked={onlyMandatorySTR === "true"}
+          onChange={(event) => {
+            if (onlyMandatorySTR === "true") {
+              event.target.checked = false;
+              setOnlyMandatory("false");
+            } else {
+              event.target.checked = true;
+              setOnlyMandatory("true");
+            }
+          }}
+        />
+        <br />
         <label htmlFor="file">Student History:</label>
         <br />
         <input type="file" ref={fileInput} />
         <br />
         <button type="submit">Submit</button>
+        <button onClick={clearButton}>Clear</button>
       </form>
-      <button onClick={clearButton}>Clear</button>
       <br />
       <br />
       <br />
