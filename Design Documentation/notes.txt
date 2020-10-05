@@ -11,8 +11,35 @@ default use only mandatory courses in history, toggle for not
 enter transcript info (page in tool) use file import, DO NOT ADD TO DATABASE
 Use temp data for current student history, compare only to database (not other students in temp data)
 
-Current term needs to be entered. 
+Current term needs to be entered. (why?)
 Default of semesters in the future is 0, if other than 0 result is 0 up to and including result. 
 
 Add table of cluster data (incl centers?)
 Order based on distance function (closest center to target student)
+
+"what if?" section (maybe more useful for future student-faced version)
+
+feedback form
+
+comparison view between methods (same screen for both methods) (side by side?)
+
+first result of machine learning shows cluster center data, not average grade. 
+second result uses data from students in cluster, NOT CENTER. 
+(add note, distribution of students in cluster may not be the same as cluster center).
+
+testing using a generated dataset with specific numbers of matching students for different scenarios. 
+
+DoT.js templating?
+
+default values: 1 semester, 20% leeway, 
+
+change percent leeway to grade difference?
+
+remove courses that student has already taken
+show mandatory courses on top
+table view?
+side by side view, (table of mandatory courses, 2 of rest) for each method (database, ml)
+
+
+history calc incorrect
+try row 

@@ -1,6 +1,8 @@
 import React, { useState, useRef } from "react";
 import axios from "axios";
 import Papa from "papaparse";
+import History from "./History.js";
+import Results from "./Results.js";
 import "./App.css";
 
 class Grade {
@@ -12,27 +14,28 @@ class Grade {
 }
 
 class Student {
-  constructor(id, startTerm) {
+  constructor(name, id, startTerm) {
+    this.name = name;
     this.id = id;
     this.startTerm = startTerm;
     this.grades = new Array(0);
   }
 }
 
-const mandatoryCourses = [401, 441, 445, 447, 449, 1501, 1502, 1550];
+const MANDATORYCOURSES = [401, 441, 445, 447, 449, 1501, 1502, 1550];
 
 function convertToStudents(history) {
   let currentStudents = {};
 
   for (let record of history) {
+    let name = record.Name;
     let studentID = record.studentID;
     let catalogNumber = parseInt(record.catalogNumber);
     let term = parseInt(record.term);
     let grade = record.grade;
     let student;
-
     if (!(studentID in currentStudents)) {
-      student = new Student(studentID, term);
+      student = new Student(name, studentID, term);
       currentStudents[studentID] = student;
     } else {
       student = currentStudents[studentID];
@@ -53,7 +56,7 @@ function convertToStudents(history) {
       record.termsFromStudentStart = difference;
     }
   }
-
+  // console.log("return from convertToStudents " + typeof currentStudents);
   return currentStudents;
 }
 
@@ -72,76 +75,99 @@ function parseFileAsync(file) {
 }
 
 function App() {
-  const [apiResponse, setAPIResponse] = useState("");
+  const [apiResponse, setAPIResponse] = useState(null);
   const [id, setID] = useState("");
-  const [currentSemesterSTR, setCurrentSemester] = useState(0);
-  const [resultSemesterSTR, setResultSemester] = useState(0);
-  const [leewaySTR, setLeeway] = useState(0);
-  const [percentDifferenceSTR, setPercentDifference] = useState(0.0);
+  const [currentSemesterSTR, setCurrentSemester] = useState(2201);
+  const [studentTerms, setStudentTerms] = useState(0);
+  const [resultSemesterSTR, setResultSemester] = useState(3);
+  const [semLeewaySTR, setSemLeeway] = useState(1);
+  const [gradeLeewaySTR, setGradeLeeway] = useState(1);
   const [onlyMandatorySTR, setOnlyMandatory] = useState("true");
+  const [onlyCompletedSTR, setOnlyCompleted] = useState("false");
+  const [currentStudent, setCurrentStudent] = useState(null);
+  const [displayResults, setDisplayResults] = useState(false);
   const fileInput = useRef(null);
 
   async function submitButton(event) {
-    setAPIResponse("");
     event.preventDefault();
+    setAPIResponse(null);
+    setDisplayResults(false);
     try {
       let history = await parseFileAsync(fileInput.current.files[0]);
       let currentStudents = convertToStudents(history);
       let currentSemester = parseInt(currentSemesterSTR);
       let resultSemester = parseInt(resultSemesterSTR);
-      let leeway = parseInt(leewaySTR);
-      let percentDifference = parseFloat(percentDifferenceSTR);
+      let semLeeway = parseInt(semLeewaySTR);
+      let gradeLeeway = parseInt(gradeLeewaySTR);
       let mandatory = onlyMandatorySTR === "true";
+      let completed = onlyCompletedSTR === "true";
+      let student = currentStudents[id];
+      setCurrentStudent(student);
+
+      let termsFromStudentStart = currentSemester - student.startTerm;
+      termsFromStudentStart = Math.floor(
+        (termsFromStudentStart - Math.floor(termsFromStudentStart / 10)) / 3
+      );
+      setStudentTerms(termsFromStudentStart);
 
       let query =
-        `SELECT * FROM Grades WHERE termsFromStudentStart > ${currentSemester} AND termsFromStudentStart <= ${
-          currentSemester + resultSemester
+        `SELECT * FROM Grades WHERE termsFromStudentStart > ${termsFromStudentStart} AND termsFromStudentStart <= ${
+          termsFromStudentStart + resultSemester
         } AND studentID IN \n` +
         `(SELECT studentID FROM Students WHERE studentID != '${id}'\n`;
-      let student = currentStudents[id];
+      if (completed) {
+        query += ` AND allMandatory = true\n`;
+      }
       let grades = student.grades;
       for (let i = 0; i < grades.length; i++) {
         let grade = grades[i];
-        if (grade.termsFromStudentStart > currentSemester) continue;
-        if (mandatory && !mandatoryCourses.includes(grade.catalogNumber))
+        if (grade.termsFromStudentStart > termsFromStudentStart) continue;
+        if (mandatory && !MANDATORYCOURSES.includes(grade.catalogNumber))
           continue;
         query +=
-          ` AND EXISTS (SELECT 1 FROM Grades WHERE Grades.studentID = Students.studentID AND catalogNumber = ${grade.catalogNumber} ` +
-          `AND ABS(termsFromStudentStart - ${grade.termsFromStudentStart}) <= ${leeway} ` +
-          `AND IF((parseGrade('${grade.grade}') = 0 AND parseGrade(grade) = 0), TRUE, ` +
-          `ABS(parseGrade('${grade.grade}') - parseGrade(grade)) / ((parseGrade('${grade.grade}')+parseGrade(grade))/2)` +
-          `<= ${percentDifference}))\n`;
+          `AND EXISTS (SELECT 1 FROM Grades WHERE Grades.studentID = Students.studentID AND catalogNumber = ${grade.catalogNumber} ` +
+          `AND ABS(termsFromStudentStart - ${grade.termsFromStudentStart}) <= ${semLeeway} ` +
+          `AND ABS(parseGrade('${grade.grade}') - parseGrade(grade)) <= ${gradeLeeway})\n`;
+        // `AND ABS(parseGrade('${grade.grade}') - parseGrade(grade)) / ((parseGrade('${grade.grade}')+parseGrade(grade))/2)` +
+        // `<= ${percentDifference}))\n`;
       }
       query += `\n) ORDER BY studentID ASC, catalogNumber ASC, term ASC;`;
       // console.log(query);
       let res = await axios.post(`http://localhost:9000/database-results`, {
         query: query,
       });
-      let result = "";
-      for (let i = 0; i < res.data.length; i++) {
-        let record = res.data[i];
-        result = result.concat(
-          `id: ${record.studentID}, catalogNumber: ${record.catalogNumber}, grade: ${record.grade}\n`
-        );
-      }
-      setAPIResponse(result);
+      // console.log("matching students: " + res.data.length);
+      // let result = "";
+      // for (let i = 0; i < res.data.length; i++) {
+      //   let record = res.data[i];
+      //   result = result.concat(
+      //     `id: ${record.studentID}, catalogNumber: ${record.catalogNumber}, grade: ${record.grade}\n`
+      //   );
+      // }
+      // setAPIResponse(result);
+      setAPIResponse(res.data);
+      setDisplayResults(true);
     } catch (error) {
       throw error;
     }
   }
 
   function clearButton() {
-    setAPIResponse("");
+    setAPIResponse(null);
+    setCurrentStudent(null);
+    setStudentTerms(0);
     setID("");
-    setCurrentSemester(0);
-    setResultSemester(0);
-    setLeeway(0);
-    setPercentDifference(0);
-    setOnlyMandatory("");
+    setCurrentSemester(2201);
+    setResultSemester(3);
+    setSemLeeway(1);
+    setGradeLeeway(1);
+    setOnlyMandatory("true");
+    setOnlyCompleted("false");
+    setDisplayResults(false);
   }
 
   return (
-    <div>
+    <div className="App">
       <form onSubmit={submitButton}>
         <label htmlFor="studentID">StudentID: </label> <br />
         <input
@@ -186,34 +212,33 @@ function App() {
           }}
         />
         <br />
-        <label htmlFor="leeway">
+        <label htmlFor="semLeeway">
           What is the largest allowable difference in semesters?
           <br />0 means courses must match exactly.
         </label>
         <br />
         <input
           type="number"
-          id="leeway"
-          name="leeway"
-          value={leewaySTR}
+          id="semLeeway"
+          name="semLeeway"
+          value={semLeewaySTR}
           onChange={(event) => {
-            setLeeway(event.target.value);
+            setSemLeeway(event.target.value);
           }}
         />
         <br />
-        <label htmlFor="percentDifference">
-          What is the allowable percent difference in grades? <br /> 0 means
+        <label htmlFor="gradeLeeway">
+          What is the largest allowable difference in grades? <br /> 0 means
           grades must match exactly.
         </label>
         <br />
         <input
           type="number"
-          step="any"
-          id="percentDifference"
-          name="percentDifference"
-          value={percentDifferenceSTR}
+          id="gradeLeeway"
+          name="gradeLeeway"
+          value={gradeLeewaySTR}
           onChange={(event) => {
-            setPercentDifference(event.target.value);
+            setGradeLeeway(event.target.value);
           }}
         />
         <br />
@@ -234,6 +259,25 @@ function App() {
           }}
         />
         <br />
+        <label htmlFor="completed">
+          Only include students who completed all mandatory CS courses
+        </label>
+        <input
+          type="checkbox"
+          id="completed"
+          name="completed"
+          checked={onlyCompletedSTR === "true"}
+          onChange={(event) => {
+            if (onlyCompletedSTR === "true") {
+              event.target.checked = false;
+              setOnlyCompleted("false");
+            } else {
+              event.target.checked = true;
+              setOnlyCompleted("true");
+            }
+          }}
+        />
+        <br />
         <label htmlFor="file">Student History:</label>
         <br />
         <input type="file" ref={fileInput} />
@@ -242,9 +286,21 @@ function App() {
         <button onClick={clearButton}>Clear</button>
       </form>
       <br />
+      {displayResults && (
+        <History student={currentStudent} semester={studentTerms} />
+      )}
       <br />
       <br />
-      <div style={{ whiteSpace: "pre-wrap" }}>{apiResponse}</div>
+      {displayResults && (
+        <Results
+          style={{ margin: 50 }}
+          sem={studentTerms}
+          queryResults={apiResponse}
+          currentStudent={currentStudent}
+          MANDATORYCOURSES={MANDATORYCOURSES}
+        />
+      )}
+      {/* <div style={{ whiteSpace: "pre-wrap" }}>{apiResponse}</div> */}
     </div>
   );
 }
