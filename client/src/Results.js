@@ -3,6 +3,7 @@
 */
 
 import React, { useState } from "react";
+import MySankey from "./MySankey";
 
 //convert letter grade to number equivalent
 function gradeToNum(grade) {
@@ -29,6 +30,10 @@ function gradeToNum(grade) {
       break;
     case "C":
       num = 2;
+      break;
+    case "T":
+    case "S":
+      num = 1.9;
       break;
     case "C-":
       num = 1.75;
@@ -131,8 +136,9 @@ function Results(props) {
       course.sems = [];
       course.grades = [];
       courses[grade.catalogNumber] = course;
+    } else {
+      course = courses[grade.catalogNumber];
     }
-    course = courses[grade.catalogNumber];
     course.sems.push(grade.termsFromStudentStart - sem);
     course.grades.push(grade.grade);
   }
@@ -203,6 +209,7 @@ function Results(props) {
 
   let table = [];
   for (let i = 0; i < cells.length; i += 2) {
+    //It is safe to do cells[i+1] since javascript just returns "undefined" if out of bounds
     table.push(
       <tr key={"Row " + Math.floor(i)}>
         {cells[i]}
@@ -223,12 +230,18 @@ function Results(props) {
                 <th>Catalog Number: </th>
                 <th># of Students: </th>
                 <th>Average Grade: </th>
-                <th>Average # of Semesters Ahead: </th>
+                <th>
+                  Average # of <br />
+                  Semesters Ahead:{" "}
+                </th>
                 <th></th>
                 <th>Catalog Number: </th>
                 <th># of Students: </th>
                 <th>Average Grade: </th>
-                <th>Average # of Semesters Ahead: </th>
+                <th>
+                  Average # of <br />
+                  Semesters Ahead:{" "}
+                </th>
               </tr>
             </thead>
             <tbody>{table}</tbody>
@@ -238,6 +251,12 @@ function Results(props) {
       {!displayAllResults && (
         <div>
           <h3>CS-{catalogNumberSelected}</h3>
+          <MySankey
+            catalogNumber={catalogNumberSelected}
+            grades={courses[catalogNumberSelected]}
+            width={300}
+            height={600}
+          />
           <button onClick={backButton} className="back">
             Back
           </button>

@@ -169,7 +169,7 @@ function App() {
   return (
     <div className="App">
       <form onSubmit={submitButton}>
-        <label htmlFor="studentID">StudentID: </label> <br />
+        <label htmlFor="studentID">StudentID: </label>
         <input
           type="text"
           id="studentID"
@@ -184,7 +184,6 @@ function App() {
         <label htmlFor="currentSemester">
           How many semesters into this student's CS career are they?
         </label>
-        <br />
         <input
           type="number"
           min="0"
@@ -200,7 +199,6 @@ function App() {
           How many semesters into the future from the current semester are you
           looking?
         </label>
-        <br />
         <input
           type="number"
           min="0"
@@ -216,7 +214,6 @@ function App() {
           What is the largest allowable difference in semesters?
           <br />0 means courses must match exactly.
         </label>
-        <br />
         <input
           type="number"
           id="semLeeway"
@@ -231,7 +228,6 @@ function App() {
           What is the largest allowable difference in grades? <br /> 0 means
           grades must match exactly.
         </label>
-        <br />
         <input
           type="number"
           id="gradeLeeway"

@@ -41,5 +41,6 @@ table view?
 side by side view, (table of mandatory courses, 2 of rest) for each method (database, ml)
 
 
-history calc incorrect
-try row 
+change history table: headers to be actual semester value. Multiple courses in same semester should be in same cell, not different in same column. 
+
+spacer between mandatory and non-mandatory courses
