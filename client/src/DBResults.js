@@ -3,7 +3,9 @@
 */
 
 import React, { useState } from "react";
-import MySankey from "./MySankey";
+import MySankey from "./MySankey.js";
+import axios from "axios";
+// import Student from "./Student.js";
 
 //convert letter grade to number equivalent
 function gradeToNum(grade) {
@@ -47,7 +49,7 @@ function gradeToNum(grade) {
     case "D-":
       num = 0.75;
       break;
-    //What to do about W, S/NC, etc?
+    //What to do about W, etc?
     case "F":
     default:
       num = 0;
@@ -108,13 +110,46 @@ function averageGradesSems(coursesArray) {
   }
 }
 
-function Results(props) {
+async function DBResults(props) {
   const [displayAllResults, setDisplayAllResults] = useState(true);
   const [catalogNumberSelected, setCatalogNumberSelected] = useState(null);
-  let queryResults = props.queryResults;
-  let sem = props.sem;
-  let currentStudent = props.currentStudent;
   const MANDATORYCOURSES = props.MANDATORYCOURSES;
+  let currentStudent = props.currentStudent;
+  let id = props.id;
+  let resultSemester = props.resultSemester;
+  let semLeeway = props.semLeeway;
+  let gradeLeeway = props.gradeLeeway;
+  let mandatory = props.mandatory;
+  let completed = props.completed;
+  let termsFromStudentStart = props.termsFromStudentStart;
+
+  let query =
+    `SELECT * FROM Grades WHERE termsFromStudentStart > ${termsFromStudentStart} AND termsFromStudentStart <= ${
+      termsFromStudentStart + resultSemester
+    } AND studentID IN \n` +
+    `(SELECT studentID FROM Students WHERE studentID != '${id}'\n`;
+  if (completed) {
+    query += ` AND allMandatory = true\n`;
+  }
+  let grades = currentStudent.grades;
+  for (let i = 0; i < grades.length; i++) {
+    let grade = grades[i];
+    if (grade.termsFromStudentStart > termsFromStudentStart) continue;
+    if (mandatory && !MANDATORYCOURSES.includes(grade.catalogNumber)) continue;
+    query +=
+      `AND EXISTS (SELECT 1 FROM Grades WHERE Grades.studentID = Students.studentID AND catalogNumber = ${grade.catalogNumber} ` +
+      `AND ABS(termsFromStudentStart - ${grade.termsFromStudentStart}) <= ${semLeeway} ` +
+      `AND ABS(parseGrade('${grade.grade}') - parseGrade(grade)) <= ${gradeLeeway})\n`;
+    // `AND ABS(parseGrade('${grade.grade}') - parseGrade(grade)) / ((parseGrade('${grade.grade}')+parseGrade(grade))/2)` +
+    // `<= ${percentDifference}))\n`;
+  }
+  query += `\n) ORDER BY studentID ASC, catalogNumber ASC, term ASC;`;
+  // console.log(query);
+  let res = await axios.post(`http://localhost:9000/database-results`, {
+    query: query,
+  });
+
+  let queryResults = res.data;
 
   let currentStudentCourses = [];
   for (let grade of currentStudent.grades) {
@@ -131,15 +166,16 @@ function Results(props) {
     }
     let course;
     if (courses[grade.catalogNumber] == null) {
-      course = {};
-      course.catalogNumber = grade.catalogNumber;
-      course.sems = [];
-      course.grades = [];
+      course = {
+        catalogNumber: grade.catalogNumber,
+        sems: [],
+        grades: [],
+      };
       courses[grade.catalogNumber] = course;
     } else {
       course = courses[grade.catalogNumber];
     }
-    course.sems.push(grade.termsFromStudentStart - sem);
+    course.sems.push(grade.termsFromStudentStart - termsFromStudentStart);
     course.grades.push(grade.grade);
   }
   //   let keys = Object.keys(courses);
@@ -252,10 +288,9 @@ function Results(props) {
         <div>
           <h3>CS-{catalogNumberSelected}</h3>
           <MySankey
-            catalogNumber={catalogNumberSelected}
-            grades={courses[catalogNumberSelected]}
-            width={300}
-            height={600}
+            course={courses[catalogNumberSelected]}
+            width={600}
+            height={400}
           />
           <button onClick={backButton} className="back">
             Back
@@ -266,4 +301,4 @@ function Results(props) {
   );
 }
 
-export default Results;
+export default DBResults;

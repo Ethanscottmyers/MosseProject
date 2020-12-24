@@ -60,3 +60,12 @@ td {
 #back {
   margin-bottom: 20px;
 }
+
+.link {
+  fill: none;
+  stroke-opacity: 0.3;
+}
+
+.link:hover {
+  stroke-opacity: 0.6;
+}

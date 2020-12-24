@@ -44,3 +44,17 @@ side by side view, (table of mandatory courses, 2 of rest) for each method (data
 change history table: headers to be actual semester value. Multiple courses in same semester should be in same cell, not different in same column. 
 
 spacer between mandatory and non-mandatory courses
+
+calculate current term from current date
+
+add median to alt text
+
+add % students passed to each term node in sankey
+
+hover over link, show % 
+
+alt text: % students in that node. 
+alt text for grade: breakdown of + and - grades
+alt text for term: 
+
+"preserve term" toggle, match fall/spring/summer of target with results

@@ -1,26 +1,10 @@
 import React, { useState, useRef } from "react";
-import axios from "axios";
 import Papa from "papaparse";
 import History from "./History.js";
-import Results from "./Results.js";
+import DBResults from "./DBResults.js";
+import Student from "./Student.js";
+import Grade from "./Grade.js";
 import "./App.css";
-
-class Grade {
-  constructor(term, catalogNumber, grade) {
-    this.term = term;
-    this.catalogNumber = catalogNumber;
-    this.grade = grade;
-  }
-}
-
-class Student {
-  constructor(name, id, startTerm) {
-    this.name = name;
-    this.id = id;
-    this.startTerm = startTerm;
-    this.grades = new Array(0);
-  }
-}
 
 const MANDATORYCOURSES = [401, 441, 445, 447, 449, 1501, 1502, 1550];
 
@@ -56,7 +40,6 @@ function convertToStudents(history) {
       record.termsFromStudentStart = difference;
     }
   }
-  // console.log("return from convertToStudents " + typeof currentStudents);
   return currentStudents;
 }
 
@@ -75,87 +58,44 @@ function parseFileAsync(file) {
 }
 
 function App() {
-  const [apiResponse, setAPIResponse] = useState(null);
   const [id, setID] = useState("");
   const [currentSemesterSTR, setCurrentSemester] = useState(2201);
-  const [studentTerms, setStudentTerms] = useState(0);
   const [resultSemesterSTR, setResultSemester] = useState(3);
   const [semLeewaySTR, setSemLeeway] = useState(1);
   const [gradeLeewaySTR, setGradeLeeway] = useState(1);
   const [onlyMandatorySTR, setOnlyMandatory] = useState("true");
   const [onlyCompletedSTR, setOnlyCompleted] = useState("false");
-  const [currentStudent, setCurrentStudent] = useState(null);
   const [displayResults, setDisplayResults] = useState(false);
+  const [currentStudent, setCurrentStudent] = useState(null);
+  const [termsFromStudentStart, setTermsFromStudentStart] = useState(-1);
   const fileInput = useRef(null);
 
   async function submitButton(event) {
     event.preventDefault();
-    setAPIResponse(null);
     setDisplayResults(false);
-    try {
-      let history = await parseFileAsync(fileInput.current.files[0]);
-      let currentStudents = convertToStudents(history);
-      let currentSemester = parseInt(currentSemesterSTR);
-      let resultSemester = parseInt(resultSemesterSTR);
-      let semLeeway = parseInt(semLeewaySTR);
-      let gradeLeeway = parseInt(gradeLeewaySTR);
-      let mandatory = onlyMandatorySTR === "true";
-      let completed = onlyCompletedSTR === "true";
-      let student = currentStudents[id];
-      setCurrentStudent(student);
+    let history = await parseFileAsync(fileInput.current.files[0]);
+    let currentStudents = convertToStudents(history);
+    let currentSemester = parseInt(currentSemesterSTR);
 
-      let termsFromStudentStart = currentSemester - student.startTerm;
-      termsFromStudentStart = Math.floor(
-        (termsFromStudentStart - Math.floor(termsFromStudentStart / 10)) / 3
-      );
-      setStudentTerms(termsFromStudentStart);
+    setCurrentStudent(currentStudents[id]);
 
-      let query =
-        `SELECT * FROM Grades WHERE termsFromStudentStart > ${termsFromStudentStart} AND termsFromStudentStart <= ${
-          termsFromStudentStart + resultSemester
-        } AND studentID IN \n` +
-        `(SELECT studentID FROM Students WHERE studentID != '${id}'\n`;
-      if (completed) {
-        query += ` AND allMandatory = true\n`;
-      }
-      let grades = student.grades;
-      for (let i = 0; i < grades.length; i++) {
-        let grade = grades[i];
-        if (grade.termsFromStudentStart > termsFromStudentStart) continue;
-        if (mandatory && !MANDATORYCOURSES.includes(grade.catalogNumber))
-          continue;
-        query +=
-          `AND EXISTS (SELECT 1 FROM Grades WHERE Grades.studentID = Students.studentID AND catalogNumber = ${grade.catalogNumber} ` +
-          `AND ABS(termsFromStudentStart - ${grade.termsFromStudentStart}) <= ${semLeeway} ` +
-          `AND ABS(parseGrade('${grade.grade}') - parseGrade(grade)) <= ${gradeLeeway})\n`;
-        // `AND ABS(parseGrade('${grade.grade}') - parseGrade(grade)) / ((parseGrade('${grade.grade}')+parseGrade(grade))/2)` +
-        // `<= ${percentDifference}))\n`;
-      }
-      query += `\n) ORDER BY studentID ASC, catalogNumber ASC, term ASC;`;
-      // console.log(query);
-      let res = await axios.post(`http://localhost:9000/database-results`, {
-        query: query,
-      });
-      // console.log("matching students: " + res.data.length);
-      // let result = "";
-      // for (let i = 0; i < res.data.length; i++) {
-      //   let record = res.data[i];
-      //   result = result.concat(
-      //     `id: ${record.studentID}, catalogNumber: ${record.catalogNumber}, grade: ${record.grade}\n`
-      //   );
-      // }
-      // setAPIResponse(result);
-      setAPIResponse(res.data);
-      setDisplayResults(true);
-    } catch (error) {
-      throw error;
-    }
+    let termsFromStudentStart = currentSemester - currentStudents[id].startTerm;
+    termsFromStudentStart = Math.floor(
+      (termsFromStudentStart - Math.floor(termsFromStudentStart / 10)) / 3
+    );
+    setTermsFromStudentStart(termsFromStudentStart);
+
+    // //get cluster centers.
+    // query = `SELECT * FROM DetRatioClusterGrades ORDER BY cluster, catalogNumber`;
+    // res = await axios.post(`http://localhost:9000/database-results`, {
+    //   query: query,
+    // });
+    // setClusterCenters(res.data);
+
+    setDisplayResults(true);
   }
 
   function clearButton() {
-    setAPIResponse(null);
-    setCurrentStudent(null);
-    setStudentTerms(0);
     setID("");
     setCurrentSemester(2201);
     setResultSemester(3);
@@ -164,12 +104,14 @@ function App() {
     setOnlyMandatory("true");
     setOnlyCompleted("false");
     setDisplayResults(false);
+    setCurrentStudent(null);
+    setTermsFromStudentStart(-1);
   }
 
   return (
     <div className="App">
       <form onSubmit={submitButton}>
-        <label htmlFor="studentID">StudentID: </label>
+        <label htmlFor="studentID">StudentID:&nbsp;</label>
         <input
           type="text"
           id="studentID"
@@ -182,7 +124,8 @@ function App() {
         />
         <br />
         <label htmlFor="currentSemester">
-          How many semesters into this student's CS career are they?
+          What is the current semester (in PeopleSoft notation, i.e.
+          2201)?&nbsp;
         </label>
         <input
           type="number"
@@ -197,7 +140,7 @@ function App() {
         <br />
         <label htmlFor="resultSemester">
           How many semesters into the future from the current semester are you
-          looking?
+          looking?&nbsp;
         </label>
         <input
           type="number"
@@ -212,7 +155,7 @@ function App() {
         <br />
         <label htmlFor="semLeeway">
           What is the largest allowable difference in semesters?
-          <br />0 means courses must match exactly.
+          <br />0 means courses must match exactly.&nbsp;
         </label>
         <input
           type="number"
@@ -226,7 +169,7 @@ function App() {
         <br />
         <label htmlFor="gradeLeeway">
           What is the largest allowable difference in grades? <br /> 0 means
-          grades must match exactly.
+          grades must match exactly.&nbsp;
         </label>
         <input
           type="number"
@@ -238,7 +181,7 @@ function App() {
           }}
         />
         <br />
-        <label htmlFor="mandatory">Use Only Mandatory Courses: </label>
+        <label htmlFor="mandatory">Use Only Mandatory Courses:&nbsp;</label>
         <input
           type="checkbox"
           id="mandatory"
@@ -256,7 +199,7 @@ function App() {
         />
         <br />
         <label htmlFor="completed">
-          Only include students who completed all mandatory CS courses
+          Only include students who completed all mandatory CS courses:&nbsp;
         </label>
         <input
           type="checkbox"
@@ -283,20 +226,27 @@ function App() {
       </form>
       <br />
       {displayResults && (
-        <History student={currentStudent} semester={studentTerms} />
+        <History
+          student={currentStudent}
+          termsFromStudentStart={termsFromStudentStart}
+        />
       )}
       <br />
       <br />
       {displayResults && (
-        <Results
+        <DBResults
           style={{ margin: 50 }}
-          sem={studentTerms}
-          queryResults={apiResponse}
-          currentStudent={currentStudent}
           MANDATORYCOURSES={MANDATORYCOURSES}
+          currentStudent={currentStudent}
+          id={id}
+          resultSemester={parseInt(resultSemesterSTR)}
+          semLeeway={parseInt(semLeewaySTR)}
+          gradeLeeway={parseInt(gradeLeewaySTR)}
+          mandatory={onlyMandatorySTR === "true"}
+          completed={onlyCompletedSTR === "true"}
+          termsFromStudentStart={termsFromStudentStart}
         />
       )}
-      {/* <div style={{ whiteSpace: "pre-wrap" }}>{apiResponse}</div> */}
     </div>
   );
 }

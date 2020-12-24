@@ -128,7 +128,7 @@ function History(props) {
     <div id="history">
       <h3>{student.name}</h3>
       <br />
-      <h4>Terms from start: {props.semester}</h4>
+      <h4>Terms from start: {props.termsFromStudentStart}</h4>
       <table>
         <tbody>
           <tr key="headerRow">{tableHeader}</tr>
