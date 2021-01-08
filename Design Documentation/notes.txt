@@ -58,3 +58,5 @@ alt text for grade: breakdown of + and - grades
 alt text for term: 
 
 "preserve term" toggle, match fall/spring/summer of target with results
+
+move future semester and other form questions into bottom section (based on method chosen)

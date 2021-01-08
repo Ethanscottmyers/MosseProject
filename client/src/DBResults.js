@@ -110,46 +110,31 @@ function averageGradesSems(coursesArray) {
   }
 }
 
-async function DBResults(props) {
-  const [displayAllResults, setDisplayAllResults] = useState(true);
+function DBResults(props) {
+  const [displayFlag, setDisplayFlag] = useState(0); //0 -> display nothing; 1 -> display grid; 2 -> display Sankey
+  const [resultSemesterSTR, setResultSemester] = useState(3);
   const [catalogNumberSelected, setCatalogNumberSelected] = useState(null);
+  const [queryResults, setQueryResults] = useState([]);
+  const [semLeewaySTR, setSemLeeway] = useState(1);
+  const [gradeLeewaySTR, setGradeLeeway] = useState(1);
+  const [onlyMandatorySTR, setOnlyMandatory] = useState("true");
+  const [onlyCompletedSTR, setOnlyCompleted] = useState("false");
+  // const [query, setQuery] = useState("SELECT NULL;");
   const MANDATORYCOURSES = props.MANDATORYCOURSES;
   let currentStudent = props.currentStudent;
-  let id = props.id;
-  let resultSemester = props.resultSemester;
-  let semLeeway = props.semLeeway;
-  let gradeLeeway = props.gradeLeeway;
-  let mandatory = props.mandatory;
-  let completed = props.completed;
   let termsFromStudentStart = props.termsFromStudentStart;
 
-  let query =
-    `SELECT * FROM Grades WHERE termsFromStudentStart > ${termsFromStudentStart} AND termsFromStudentStart <= ${
-      termsFromStudentStart + resultSemester
-    } AND studentID IN \n` +
-    `(SELECT studentID FROM Students WHERE studentID != '${id}'\n`;
-  if (completed) {
-    query += ` AND allMandatory = true\n`;
-  }
-  let grades = currentStudent.grades;
-  for (let i = 0; i < grades.length; i++) {
-    let grade = grades[i];
-    if (grade.termsFromStudentStart > termsFromStudentStart) continue;
-    if (mandatory && !MANDATORYCOURSES.includes(grade.catalogNumber)) continue;
-    query +=
-      `AND EXISTS (SELECT 1 FROM Grades WHERE Grades.studentID = Students.studentID AND catalogNumber = ${grade.catalogNumber} ` +
-      `AND ABS(termsFromStudentStart - ${grade.termsFromStudentStart}) <= ${semLeeway} ` +
-      `AND ABS(parseGrade('${grade.grade}') - parseGrade(grade)) <= ${gradeLeeway})\n`;
-    // `AND ABS(parseGrade('${grade.grade}') - parseGrade(grade)) / ((parseGrade('${grade.grade}')+parseGrade(grade))/2)` +
-    // `<= ${percentDifference}))\n`;
-  }
-  query += `\n) ORDER BY studentID ASC, catalogNumber ASC, term ASC;`;
-  // console.log(query);
-  let res = await axios.post(`http://localhost:9000/database-results`, {
-    query: query,
-  });
-
-  let queryResults = res.data;
+  // useEffect(() => {
+  //   async function sendQuery() {
+  //     let res = await axios.post(`http://localhost:9000/database-results`, {
+  //       query: query,
+  //     });
+  //     setQueryResults(res.data);
+  //   }
+  //   if (displayFlag === 1) {
+  //     sendQuery();
+  //   }
+  // }, [displayFlag, query]);
 
   let currentStudentCourses = [];
   for (let grade of currentStudent.grades) {
@@ -159,8 +144,12 @@ async function DBResults(props) {
   }
 
   let courses = {};
+  let students = {};
   //Group results by catalog number, keeping track of the semesters and grades
   for (let grade of queryResults) {
+    if (!(grade.studentID in students)) {
+      students[grade.studentID] = true;
+    }
     if (currentStudentCourses.includes(grade.catalogNumber)) {
       continue;
     }
@@ -233,16 +222,6 @@ async function DBResults(props) {
     );
   });
 
-  function clickCourse(catalogNumber, e) {
-    setDisplayAllResults(false);
-    setCatalogNumberSelected(catalogNumber);
-  }
-
-  function backButton(e) {
-    setDisplayAllResults(true);
-    setCatalogNumberSelected(null);
-  }
-
   let table = [];
   for (let i = 0; i < cells.length; i += 2) {
     //It is safe to do cells[i+1] since javascript just returns "undefined" if out of bounds
@@ -255,12 +234,153 @@ async function DBResults(props) {
     );
   }
 
+  async function sendQuery(query) {
+    let res = await axios.post(`http://localhost:9000/database-results`, {
+      query: query,
+    });
+    setQueryResults(res.data);
+  }
+
+  function clickCourse(catalogNumber, e) {
+    setDisplayFlag(2);
+    setCatalogNumberSelected(catalogNumber);
+  }
+
+  function backButton(e) {
+    setDisplayFlag(1);
+    setCatalogNumberSelected(null);
+  }
+
+  function submitButton(event) {
+    event.preventDefault();
+    let resultSemester = parseInt(resultSemesterSTR);
+    let semLeeway = parseInt(semLeewaySTR);
+    let gradeLeeway = parseInt(gradeLeewaySTR);
+    let mandatory = onlyMandatorySTR === "true";
+    let completed = onlyCompletedSTR === "true";
+    let sql = `SELECT * FROM Grades WHERE termsFromStudentStart > ${termsFromStudentStart} AND termsFromStudentStart <= ${
+      termsFromStudentStart + resultSemester
+    } AND studentID IN \n (SELECT studentID FROM Students WHERE \n`;
+    if (completed) {
+      sql += `allMandatory = true\n`;
+    } else {
+      sql += `(true)\n`; //This is here so that the following line can start with "AND".
+    }
+    let grades = currentStudent.grades;
+    for (let i = 0; i < grades.length; i++) {
+      let grade = grades[i];
+      if (grade.termsFromStudentStart > termsFromStudentStart) continue;
+      if (mandatory && !MANDATORYCOURSES.includes(grade.catalogNumber))
+        continue;
+      sql +=
+        `AND EXISTS (SELECT 1 FROM Grades WHERE Grades.studentID = Students.studentID AND catalogNumber = ${grade.catalogNumber} ` +
+        `AND ABS(termsFromStudentStart - ${grade.termsFromStudentStart}) <= ${semLeeway} ` +
+        `AND ABS(parseGrade('${grade.grade}') - parseGrade(grade)) <= ${gradeLeeway})\n`;
+      // `AND ABS(parseGrade('${grade.grade}') - parseGrade(grade)) / ((parseGrade('${grade.grade}')+parseGrade(grade))/2)` +
+      // `<= ${percentDifference}))\n`;
+    }
+    sql += `\n) ORDER BY studentID ASC, catalogNumber ASC, term ASC;`;
+    // setQuery(sql);
+    sendQuery(sql);
+    setDisplayFlag(1);
+  }
+
+  // function clearButton(event) {
+  //   setDisplayFlag(0);
+  //   setSemLeeway(1);
+  //   setGradeLeeway(1);
+  //   setOnlyMandatory("true");
+  //   setOnlyCompleted("false");
+  // }
   return (
     <div>
-      {displayAllResults && (
-        <div id="results">
-          Number of matching students: {queryResults.length}
-          <table>
+      <form onSubmit={submitButton}>
+        <label htmlFor="resultSemester">
+          How many semesters into the future from the current semester are you
+          looking?&nbsp;
+        </label>
+        <input
+          type="number"
+          min="0"
+          id="resultSemester"
+          name="resultSemester"
+          value={resultSemesterSTR}
+          onChange={(event) => {
+            setResultSemester(event.target.value);
+          }}
+        />
+        <br />
+        <label htmlFor="semLeeway">
+          What is the largest allowable difference in semesters?
+          <br />0 means courses must match exactly.&nbsp;
+        </label>
+        <input
+          type="number"
+          id="semLeeway"
+          name="semLeeway"
+          value={semLeewaySTR}
+          onChange={(event) => {
+            setSemLeeway(event.target.value);
+          }}
+        />
+        <br />
+        <label htmlFor="gradeLeeway">
+          What is the largest allowable difference in grades? <br /> 0 means
+          grades must match exactly.&nbsp;
+        </label>
+        <input
+          type="number"
+          id="gradeLeeway"
+          name="gradeLeeway"
+          value={gradeLeewaySTR}
+          onChange={(event) => {
+            setGradeLeeway(event.target.value);
+          }}
+        />
+        <br />
+        <label htmlFor="mandatory">Use Only Mandatory Courses:&nbsp;</label>
+        <input
+          type="checkbox"
+          id="mandatory"
+          name="mandatory"
+          checked={onlyMandatorySTR === "true"}
+          onChange={(event) => {
+            if (onlyMandatorySTR === "true") {
+              event.target.checked = false;
+              setOnlyMandatory("false");
+            } else {
+              event.target.checked = true;
+              setOnlyMandatory("true");
+            }
+          }}
+        />
+        <br />
+        <label htmlFor="completed">
+          Only include students who completed all mandatory CS courses:&nbsp;
+        </label>
+        <input
+          type="checkbox"
+          id="completed"
+          name="completed"
+          checked={onlyCompletedSTR === "true"}
+          onChange={(event) => {
+            if (onlyCompletedSTR === "true") {
+              event.target.checked = false;
+              setOnlyCompleted("false");
+            } else {
+              event.target.checked = true;
+              setOnlyCompleted("true");
+            }
+          }}
+        />
+        <br />
+        <button type="submit">Submit</button>
+        {/* <button onClick={clearButton}>Clear</button> */}
+      </form>
+      {displayFlag === 1 && (
+        <div className="resultsTable">
+          Number of matching students: {Object.keys(students).length}
+          <table className="border">
             <thead>
               <tr>
                 <th>Catalog Number: </th>
@@ -284,14 +404,16 @@ async function DBResults(props) {
           </table>
         </div>
       )}
-      {!displayAllResults && (
+      {displayFlag === 2 && (
         <div>
           <h3>CS-{catalogNumberSelected}</h3>
           <MySankey
             course={courses[catalogNumberSelected]}
             width={600}
             height={400}
+            margin={50}
           />
+          <br />
           <button onClick={backButton} className="back">
             Back
           </button>

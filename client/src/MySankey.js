@@ -319,7 +319,7 @@ function colorByGrade(grade) {
   return `rgb(${r}, ${g}, 0)`;
 }
 
-function MySankey({ course, width, height }) {
+function MySankey({ course, width, height, margin }) {
   var graph = generateSankeyData(course);
   const { nodes, links } = sankey()
     .nodeWidth(15)
@@ -329,10 +329,19 @@ function MySankey({ course, width, height }) {
       [1, 1],
       [width - 1, height - 5],
     ])
-    .nodeSort(null)(graph);
+    .nodeSort(null)
+    .linkSort((a, b) => {
+      if (a.target < b.target) {
+        return -1;
+      } else if (a.target > b.target) {
+        return 1;
+      } else {
+        return 0;
+      }
+    })(graph);
 
   return (
-    <svg width="100%" height="800">
+    <svg width={width + margin} height={height + margin}>
       <g>
         {nodes.map((node, i) => {
           let color;

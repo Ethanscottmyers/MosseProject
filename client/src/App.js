@@ -4,7 +4,10 @@ import History from "./History.js";
 import DBResults from "./DBResults.js";
 import Student from "./Student.js";
 import Grade from "./Grade.js";
+import Select from "react-select";
 import "./App.css";
+import DetRatioResults from "./DetRatioResults.js";
+import BestTraceResults from "./BestTraceResults.js";
 
 const MANDATORYCOURSES = [401, 441, 445, 447, 449, 1501, 1502, 1550];
 
@@ -60,15 +63,18 @@ function parseFileAsync(file) {
 function App() {
   const [id, setID] = useState("");
   const [currentSemesterSTR, setCurrentSemester] = useState(2201);
-  const [resultSemesterSTR, setResultSemester] = useState(3);
-  const [semLeewaySTR, setSemLeeway] = useState(1);
-  const [gradeLeewaySTR, setGradeLeeway] = useState(1);
-  const [onlyMandatorySTR, setOnlyMandatory] = useState("true");
-  const [onlyCompletedSTR, setOnlyCompleted] = useState("false");
   const [displayResults, setDisplayResults] = useState(false);
   const [currentStudent, setCurrentStudent] = useState(null);
   const [termsFromStudentStart, setTermsFromStudentStart] = useState(-1);
+  const [results0Type, setResults0Type] = useState(-1); //-1 is nothing, 0 is db, 1 is ml1, 2 is ml2
+  const [results1Type, setResults1Type] = useState(-1); //-1 is nothing, 0 is db, 1 is ml1, 2 is ml2
   const fileInput = useRef(null);
+  const options = [
+    { value: -1, label: "Select one:" },
+    { value: 0, label: "Deterministic Method" },
+    { value: 1, label: "Machine Learning Method 1" },
+    { value: 2, label: "Machine Learning Method 2" },
+  ];
 
   async function submitButton(event) {
     event.preventDefault();
@@ -95,17 +101,61 @@ function App() {
     setDisplayResults(true);
   }
 
-  function clearButton() {
-    setID("");
-    setCurrentSemester(2201);
-    setResultSemester(3);
-    setSemLeeway(1);
-    setGradeLeeway(1);
-    setOnlyMandatory("true");
-    setOnlyCompleted("false");
-    setDisplayResults(false);
-    setCurrentStudent(null);
-    setTermsFromStudentStart(-1);
+  // function clearButton() {
+  //   setID("");
+  //   setCurrentSemester(2201);
+  //   setResultSemester(3);
+  //   setDisplayResults(false);
+  //   setCurrentStudent(null);
+  //   setTermsFromStudentStart(-1);
+  //   setResults0Type(-1);
+  //   setResults1Type(-1);
+  // }
+
+  //When the dropdown changes, change the value of resultsType
+  function onChange0(value) {
+    setResults0Type(value.value);
+  }
+  function onChange1(value) {
+    setResults1Type(value.value);
+  }
+
+  function results(type) {
+    switch (type) {
+      case -1:
+        return;
+      case 0:
+        return (
+          <DBResults
+            style={{ margin: 50 }}
+            MANDATORYCOURSES={MANDATORYCOURSES}
+            currentStudent={currentStudent}
+            termsFromStudentStart={termsFromStudentStart}
+          />
+        );
+      case 1:
+        return (
+          // <h3>Machine Learning Algorithm 1 results</h3>
+          <DetRatioResults
+            style={{ margin: 50 }}
+            MANDATORYCOURSES={MANDATORYCOURSES}
+            currentStudent={currentStudent}
+            termsFromStudentStart={termsFromStudentStart}
+          />
+        );
+      case 2:
+        // return <h3>Machine Learning Algorithm 2 results</h3>;
+        return (
+          <BestTraceResults
+            style={{ margin: 50 }}
+            MANDATORYCOURSES={MANDATORYCOURSES}
+            currentStudent={currentStudent}
+            termsFromStudentStart={termsFromStudentStart}
+          />
+        );
+      default:
+        console.log("Error!: Invalid result type");
+    }
   }
 
   return (
@@ -138,91 +188,12 @@ function App() {
           }}
         />
         <br />
-        <label htmlFor="resultSemester">
-          How many semesters into the future from the current semester are you
-          looking?&nbsp;
-        </label>
-        <input
-          type="number"
-          min="0"
-          id="resultSemester"
-          name="resultSemester"
-          value={resultSemesterSTR}
-          onChange={(event) => {
-            setResultSemester(event.target.value);
-          }}
-        />
-        <br />
-        <label htmlFor="semLeeway">
-          What is the largest allowable difference in semesters?
-          <br />0 means courses must match exactly.&nbsp;
-        </label>
-        <input
-          type="number"
-          id="semLeeway"
-          name="semLeeway"
-          value={semLeewaySTR}
-          onChange={(event) => {
-            setSemLeeway(event.target.value);
-          }}
-        />
-        <br />
-        <label htmlFor="gradeLeeway">
-          What is the largest allowable difference in grades? <br /> 0 means
-          grades must match exactly.&nbsp;
-        </label>
-        <input
-          type="number"
-          id="gradeLeeway"
-          name="gradeLeeway"
-          value={gradeLeewaySTR}
-          onChange={(event) => {
-            setGradeLeeway(event.target.value);
-          }}
-        />
-        <br />
-        <label htmlFor="mandatory">Use Only Mandatory Courses:&nbsp;</label>
-        <input
-          type="checkbox"
-          id="mandatory"
-          name="mandatory"
-          checked={onlyMandatorySTR === "true"}
-          onChange={(event) => {
-            if (onlyMandatorySTR === "true") {
-              event.target.checked = false;
-              setOnlyMandatory("false");
-            } else {
-              event.target.checked = true;
-              setOnlyMandatory("true");
-            }
-          }}
-        />
-        <br />
-        <label htmlFor="completed">
-          Only include students who completed all mandatory CS courses:&nbsp;
-        </label>
-        <input
-          type="checkbox"
-          id="completed"
-          name="completed"
-          checked={onlyCompletedSTR === "true"}
-          onChange={(event) => {
-            if (onlyCompletedSTR === "true") {
-              event.target.checked = false;
-              setOnlyCompleted("false");
-            } else {
-              event.target.checked = true;
-              setOnlyCompleted("true");
-            }
-          }}
-        />
-        <br />
         <label htmlFor="file">Student History:</label>
         <br />
         <input type="file" ref={fileInput} />
         <br />
         <button type="submit">Submit</button>
-        <button onClick={clearButton}>Clear</button>
+        {/* <button onClick={clearButton}>Clear</button> */}
       </form>
       <br />
       {displayResults && (
@@ -234,18 +205,32 @@ function App() {
       <br />
       <br />
       {displayResults && (
-        <DBResults
-          style={{ margin: 50 }}
-          MANDATORYCOURSES={MANDATORYCOURSES}
-          currentStudent={currentStudent}
-          id={id}
-          resultSemester={parseInt(resultSemesterSTR)}
-          semLeeway={parseInt(semLeewaySTR)}
-          gradeLeeway={parseInt(gradeLeewaySTR)}
-          mandatory={onlyMandatorySTR === "true"}
-          completed={onlyCompletedSTR === "true"}
-          termsFromStudentStart={termsFromStudentStart}
-        />
+        <div className="resultsContainer">
+          <div className="results">
+            <Select
+              className="select"
+              name="results0"
+              onChange={onChange0}
+              defaultValue={options[0]}
+              options={options}
+              menuPlacement="auto"
+            />
+            <br />
+            {results(results0Type)}
+          </div>
+          <div className="results">
+            <Select
+              className="select"
+              name="results1"
+              onChange={onChange1}
+              defaultValue={options[0]}
+              options={options}
+              menuPlacement="auto"
+            />
+            <br />
+            {results(results1Type)}
+          </div>
+        </div>
       )}
     </div>
   );

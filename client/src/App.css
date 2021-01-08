@@ -42,18 +42,14 @@ table {
   margin: auto;
 }
 
-table,
-th,
-td {
+table.border,
+table.border th,
+table.border td {
   border: 1px solid black;
 }
 
 #history {
   text-align: center;
-  margin: auto;
-}
-
-#results {
   margin: auto;
 }
 
@@ -68,4 +64,27 @@ td {
 
 .link:hover {
   stroke-opacity: 0.6;
+}
+
+.resultsContainer {
+  padding: 10 px;
+}
+
+.results {
+  width: 45%;
+  float: left;
+  padding: 20px;
+  border: 1px solid black;
+}
+
+/* .resultsTable {
+  width: 90%;
+} */
+.select {
+  border-style: solid;
+  border-width: 1px;
+  border-color: black;
+  position: relative;
+  width: 75%;
+  margin: auto;
 }
