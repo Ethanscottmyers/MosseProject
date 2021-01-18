@@ -96,8 +96,6 @@ function History(props) {
     }
     //since grades is sorted by catalogNumber, term bins will also be sorted by catalog number.
     courseTableByTerm[difference].push(grade);
-    // let newLength = courseTableByTerm.push(grade);
-    // if (newLength > maxRowLength) maxRowLength = newLength;
   }
   //now table is correctly set up, with each row representing the number of terms since the student started.
   let courseTable = arrayTranspose(courseTableByTerm);

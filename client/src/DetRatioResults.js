@@ -29,61 +29,6 @@ function calculateDistance(studentVector, matrix) {
   // return clusterMean[0]; //temp
 }
 
-//Turn catalog number into index of vector array based on distance formula. returns -1 if not mandatory course
-function catalogNumberToIndex(catalogNumber) {
-  switch (catalogNumber) {
-    case 401:
-      return 0;
-    case 441:
-      return 2;
-    case 445:
-      return 4;
-    case 447:
-      return 6;
-    case 449:
-      return 8;
-    case 1501:
-      return 10;
-    case 1502:
-      return 12;
-    case 1550:
-      return 14;
-    default:
-      return -1;
-  }
-}
-
-function indexToCatalogNumber(index) {
-  switch (index) {
-    case 0:
-    case 1:
-      return 401;
-    case 2:
-    case 3:
-      return 441;
-    case 4:
-    case 5:
-      return 445;
-    case 6:
-    case 7:
-      return 447;
-    case 8:
-    case 9:
-      return 449;
-    case 10:
-    case 11:
-      return 1501;
-    case 12:
-    case 13:
-      return 1502;
-    case 14:
-    case 15:
-      return 1550;
-    default:
-      return -1;
-  }
-}
-
 //convert letter grade to number equivalent
 function gradeToNum(grade) {
   let num;
@@ -205,18 +150,17 @@ function DetRatioResults(props) {
     //Get cluster distance information
     async function initialize() {
       let studentVector = [];
+      let studentCourses = {};
+      currentStudent.grades.sort((a, b) => {
+        return a.catalogNumber - b.catalogNumber;
+      });
       for (let grade of currentStudent.grades) {
-        let index = catalogNumberToIndex(grade.catalogNumber);
-        if (index !== -1) {
-          studentVector[index] = gradeToNum(grade.grade);
-          studentVector[index + 1] = grade.termsFromStudentStart;
-        }
-      }
-      //Find out what courses are missing from student vector
-      let studentCourses = [];
-      for (let i = 0; i < 16; i += 2) {
-        if (studentVector[i] !== undefined) {
-          studentCourses.push(indexToCatalogNumber(i));
+        if (MANDATORYCOURSES.includes(grade.catalogNumber)) {
+          if (!(grade.catalogNumber in studentCourses)) {
+            studentCourses[grade.catalogNumber] = true;
+          }
+          studentVector.push(gradeToNum(grade.grade));
+          studentVector.push(grade.termsFromStudentStart);
         }
       }
 
@@ -224,7 +168,7 @@ function DetRatioResults(props) {
         `SELECT s.studentID AS studentID, catalogNumber, grade, termsFromStudentStart, detRatioCluster AS cluster\n` +
         `FROM Grades g INNER JOIN Students s ON g.studentID = s.studentID \n` +
         `WHERE catalogNumber IN (${MANDATORYCOURSES}) AND detRatioCluster IS NOT NULL\n` +
-        `ORDER BY term`;
+        `ORDER BY studentID, termsFromStudentStart`;
       //   let clusterStudents = await axios.post(
       //     `http://localhost:9000/database-results`,
       //     {
@@ -241,24 +185,34 @@ function DetRatioResults(props) {
       //first, gather data in object by studentID
       let gradesByStudent = {};
       for (let gradeData of clusterStudents.data) {
-        if (!(gradeData.studentID in gradesByStudent)) {
-          gradesByStudent[gradeData.studentID] = {
-            cluster: gradeData.cluster,
-            grades: [],
-          };
-        }
-        if (studentCourses.includes(gradeData.catalogNumber)) {
-          gradesByStudent[gradeData.studentID].grades.push({
+        if (gradeData.catalogNumber in studentCourses) {
+          if (!(gradeData.studentID in gradesByStudent)) {
+            gradesByStudent[gradeData.studentID] = {
+              cluster: gradeData.cluster,
+              grades: {},
+            };
+          }
+          //grades is an object instead of an array so that duplicates are overwritten with no extra complexity
+          //Since gradeData is sorted by termsFromStudentStart, the most recent grade will be the last one written
+          gradesByStudent[gradeData.studentID].grades[
+            gradeData.catalogNumber
+          ] = {
             catalogNumber: gradeData.catalogNumber,
             grade: gradeData.grade,
             semester: gradeData.termsFromStudentStart,
-          });
+          };
         }
       }
+
       //now that gradesByStudent is done, re-arrange all grades into the masterMatrix
       let masterMatrix = [];
       for (let studentID in gradesByStudent) {
         let student = gradesByStudent[studentID];
+        student.grades = Object.values(student.grades); //turn object back into array so that it can be sorted
+        student.grades.sort((a, b) => {
+          return a.catalogNumber - b.catalogNumber;
+        }); //objects have no order, so need to sort it.
+
         //if there is no matrix for this student's cluster yet, make one
         if (masterMatrix[student.cluster] === undefined) {
           masterMatrix[student.cluster] = [];
@@ -266,11 +220,8 @@ function DetRatioResults(props) {
         let tempStudentVector = []; //vector as described in distance formula
         for (let grade of student.grades) {
           //catalogNumber will be in MANDATORYCOURSES and a course that the target student took
-          tempStudentVector[
-            catalogNumberToIndex(grade.catalogNumber)
-          ] = gradeToNum(grade.grade);
-          tempStudentVector[catalogNumberToIndex(grade.catalogNumber) + 1] =
-            grade.semester;
+          tempStudentVector.push(gradeToNum(grade.grade));
+          tempStudentVector.push(grade.semester);
         }
         masterMatrix[student.cluster].push(tempStudentVector);
       }

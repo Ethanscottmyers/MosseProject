@@ -23,68 +23,45 @@ For each student for each cluster:
 4.  The distance is calculated as sqrt[ sum over all corresponding column values
     (|(Y_g-M_g)*lambda^(|Y_t-M_t|)|^2) ], where lambda = 0.9 but can be changed in the future, 
     and |A| indicates the absolute value of A.
-*/
+    */
+
+const LAMBDA = 0.9;
+const FORMULA_EXP = 2;
 
 //Calculate the distance to each cluster mean using the above formula.
 function calculateDistance(studentVector, clusterMean) {
-  return clusterMean[0];
-}
-
-// function
-
-//Turn catalog number into index of vector array based on distance formula. returns -1 if not mandatory course
-function catalogNumberToIndex(catalogNumber) {
-  switch (catalogNumber) {
-    case 401:
-      return 0;
-    case 441:
-      return 2;
-    case 445:
-      return 4;
-    case 447:
-      return 6;
-    case 449:
-      return 8;
-    case 1501:
-      return 10;
-    case 1502:
-      return 12;
-    case 1550:
-      return 14;
-    default:
-      return -1;
+  let M_g = [],
+    M_t = [],
+    Y_g = [],
+    Y_t = [];
+  if (studentVector.length !== clusterMean.length) {
+    console.log(
+      "ERROR! Student Vector " +
+        studentVector +
+        " is not the same length as mean vector " +
+        clusterMean +
+        "."
+    );
+    return -1;
   }
-}
-
-function indexToCatalogNumber(index) {
-  switch (index) {
-    case 0:
-    case 1:
-      return 401;
-    case 2:
-    case 3:
-      return 441;
-    case 4:
-    case 5:
-      return 445;
-    case 6:
-    case 7:
-      return 447;
-    case 8:
-    case 9:
-      return 449;
-    case 10:
-    case 11:
-      return 1501;
-    case 12:
-    case 13:
-      return 1502;
-    case 14:
-    case 15:
-      return 1550;
-    default:
-      return -1;
+  for (let i = 0; i < studentVector.length; i++) {
+    if (i % 2 === 0) {
+      M_g.push(clusterMean[i]);
+      Y_g.push(studentVector[i]);
+    } else {
+      M_t.push(clusterMean[i]);
+      Y_t.push(studentVector[i]);
+    }
   }
+  //now vectors are seperated correctly. Calculate distance according to formula above.
+  let sum = 0;
+  for (let i = 0; i < M_g.length; i++) {
+    sum += Math.pow(
+      Math.abs((Y_g[i] - M_g[i]) * Math.pow(LAMBDA, Math.abs(Y_t[i] - M_t[i]))),
+      FORMULA_EXP
+    );
+  }
+  return Math.sqrt(sum);
 }
 
 //convert letter grade to number equivalent
@@ -208,36 +185,34 @@ function BestTraceResults(props) {
     //Get cluster distance information
     async function initialize() {
       let studentVector = [];
+      let studentCourses = {};
+      currentStudent.grades.sort((a, b) => {
+        return a.catalogNumber - b.catalogNumber;
+      });
       for (let grade of currentStudent.grades) {
-        let index = catalogNumberToIndex(grade.catalogNumber);
-        if (index !== -1) {
-          studentVector[index] = gradeToNum(grade.grade);
-          studentVector[index + 1] = grade.termsFromStudentStart;
-        }
-      }
-      //Find out what courses are missing from student vector
-      let studentCourses = [];
-      for (let i = 0; i < 16; i += 2) {
-        if (studentVector[i] !== undefined) {
-          studentCourses.push(indexToCatalogNumber(i));
+        if (MANDATORYCOURSES.includes(grade.catalogNumber)) {
+          if (!(grade.catalogNumber in studentCourses)) {
+            studentCourses[grade.catalogNumber] = true;
+          }
+          studentVector.push(gradeToNum(grade.grade));
+          studentVector.push(grade.termsFromStudentStart);
         }
       }
 
       let res = await axios.post(`http://localhost:9000/database-results`, {
-        query: "SELECT * FROM TraceClusterGrades;",
+        query:
+          "SELECT * FROM TraceClusterGrades ORDER BY cluster, catalogNumber;",
       });
       let clusterMeanArray = []; //2d array of cluster mean vectors
       for (let grade of res.data) {
         //if grade is of catalogNumber that student doesn't have, skip it
-        if (studentCourses.includes(grade.catalogNumber)) {
-          let index = catalogNumberToIndex(grade.catalogNumber);
+        if (grade.catalogNumber in studentCourses) {
           //if there isn't an array for this cluster yet, make one
           if (clusterMeanArray[grade.cluster] === undefined) {
             clusterMeanArray[grade.cluster] = [];
           }
-          clusterMeanArray[grade.cluster][index] = grade.grade;
-          clusterMeanArray[grade.cluster][index + 1] =
-            grade.termsFromStudentStart;
+          clusterMeanArray[grade.cluster].push(grade.grade);
+          clusterMeanArray[grade.cluster].push(grade.termsFromStudentStart);
         }
       }
       let clusterDistances = [];

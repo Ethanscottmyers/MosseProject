@@ -16,10 +16,10 @@ function convertToStudents(history) {
 
   for (let record of history) {
     let name = record.Name;
-    let studentID = record.studentID;
-    let catalogNumber = parseInt(record.catalogNumber);
-    let term = parseInt(record.term);
-    let grade = record.grade;
+    let studentID = record["Analytics ID"];
+    let catalogNumber = parseInt(record["Catalog Number"]);
+    let term = parseInt(record["Academic Term Code"]);
+    let grade = record["Final Grade Code"];
     let student;
     if (!(studentID in currentStudents)) {
       student = new Student(name, studentID, term);
@@ -60,9 +60,26 @@ function parseFileAsync(file) {
   });
 }
 
+function currentSemester() {
+  let d = new Date();
+  let year = d.getFullYear();
+  let millenium = Math.floor(year / 1000);
+  let decadeYear = year % 100;
+  let semester;
+  if (d.getMonth() < 5) {
+    semester = 4;
+  } else if (d.getMonth() < 8) {
+    semester = 7;
+  } else {
+    decadeYear += 1;
+    semester = 1;
+  }
+  return millenium * 1000 + decadeYear * 10 + semester;
+}
+
 function App() {
   const [id, setID] = useState("");
-  const [currentSemesterSTR, setCurrentSemester] = useState(2201);
+  const [currentSemesterSTR, setCurrentSemester] = useState(currentSemester());
   const [displayResults, setDisplayResults] = useState(false);
   const [currentStudent, setCurrentStudent] = useState(null);
   const [termsFromStudentStart, setTermsFromStudentStart] = useState(-1);
@@ -79,6 +96,8 @@ function App() {
   async function submitButton(event) {
     event.preventDefault();
     setDisplayResults(false);
+    setResults0Type(-1);
+    setResults1Type(-1);
     let history = await parseFileAsync(fileInput.current.files[0]);
     let currentStudents = convertToStudents(history);
     let currentSemester = parseInt(currentSemesterSTR);
