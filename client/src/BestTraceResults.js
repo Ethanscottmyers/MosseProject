@@ -171,10 +171,12 @@ function BestTraceResults(props) {
   const MANDATORYCOURSES = props.MANDATORYCOURSES;
   let currentStudent = props.currentStudent;
   let termsFromStudentStart = props.termsFromStudentStart;
+  let side = props.side;
   let numClusters = 4; //number of clusters for this method
   const [clusterDistancesArray, setClusterDistancesArray] = useState([]);
   const [selectedCluster, setSelectedCluster] = useState(-1);
   const [resultSemesterSTR, setResultSemester] = useState(3);
+  const [onlyCompletedSTR, setOnlyCompleted] = useState("false");
   const [displayFlag, setDisplayFlag] = useState(0); //0 -> display nothing; 1 -> display grid; 2 -> display Sankey
   const [catalogNumberSelected, setCatalogNumberSelected] = useState(null);
   const [queryResults, setQueryResults] = useState([]);
@@ -190,6 +192,7 @@ function BestTraceResults(props) {
         return a.catalogNumber - b.catalogNumber;
       });
       for (let grade of currentStudent.grades) {
+        if (grade.grade === "0") continue; //0 means they are currently taking the course. skip it.
         if (MANDATORYCOURSES.includes(grade.catalogNumber)) {
           if (!(grade.catalogNumber in studentCourses)) {
             studentCourses[grade.catalogNumber] = true;
@@ -264,7 +267,11 @@ function BestTraceResults(props) {
       let resultSemester = parseInt(resultSemesterSTR);
       let sql = `SELECT * FROM Grades WHERE termsFromStudentStart > ${termsFromStudentStart} AND termsFromStudentStart <= ${
         termsFromStudentStart + resultSemester
-      } AND studentID IN \n (SELECT studentID FROM Students WHERE traceCluster = ${selectedCluster});\n`;
+      } AND studentID IN \n (SELECT studentID FROM Students WHERE traceCluster = ${selectedCluster}`;
+      if (onlyCompletedSTR === "true") {
+        sql += ` AND allMandatory = true`;
+      }
+      sql += `);\n`;
       sendQuery(sql, setQueryResults);
       setDisplayFlag(1);
     }
@@ -294,8 +301,12 @@ function BestTraceResults(props) {
   }
 
   let courses = {};
+  let students = {};
   //Group results by catalog number, keeping track of the semesters and grades
   for (let grade of queryResults) {
+    if (!(grade.studentID in students)) {
+      students[grade.studentID] = true;
+    }
     if (currentStudentCourses.includes(grade.catalogNumber)) {
       continue;
     }
@@ -382,22 +393,40 @@ function BestTraceResults(props) {
   return (
     <div>
       <form onSubmit={submitButton}>
-        <label htmlFor="resultSemester">
+        <label htmlFor={"resultSemester" + side}>
           How many semesters into the future from the current semester are you
           looking?&nbsp;
         </label>
         <input
           type="number"
           min="0"
-          id="resultSemester"
-          name="resultSemester"
+          id={"resultSemester+ side"}
+          name={"resultSemester+ side"}
           value={resultSemesterSTR}
           onChange={(event) => {
             setResultSemester(event.target.value);
           }}
         />
         <br />
-
+        <label htmlFor={"completed" + side}>
+          Only include students who completed all mandatory CS courses:&nbsp;
+        </label>
+        <input
+          type="checkbox"
+          id={"completed" + side}
+          name={"completed" + side}
+          checked={onlyCompletedSTR === "true"}
+          onChange={(event) => {
+            if (onlyCompletedSTR === "true") {
+              event.target.checked = false;
+              setOnlyCompleted("false");
+            } else {
+              event.target.checked = true;
+              setOnlyCompleted("true");
+            }
+          }}
+        />
+        <br />
         <Select
           className="selectCluster"
           name="clusterChoice"
@@ -414,6 +443,7 @@ function BestTraceResults(props) {
       <br />
       {displayFlag === 1 && (
         <div className="resultsTable">
+          Number of matching students: {Object.keys(students).length}
           <table className="border">
             <thead>
               <tr>

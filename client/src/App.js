@@ -110,26 +110,8 @@ function App() {
     );
     setTermsFromStudentStart(termsFromStudentStart);
 
-    // //get cluster centers.
-    // query = `SELECT * FROM DetRatioClusterGrades ORDER BY cluster, catalogNumber`;
-    // res = await axios.post(`http://localhost:9000/database-results`, {
-    //   query: query,
-    // });
-    // setClusterCenters(res.data);
-
     setDisplayResults(true);
   }
-
-  // function clearButton() {
-  //   setID("");
-  //   setCurrentSemester(2201);
-  //   setResultSemester(3);
-  //   setDisplayResults(false);
-  //   setCurrentStudent(null);
-  //   setTermsFromStudentStart(-1);
-  //   setResults0Type(-1);
-  //   setResults1Type(-1);
-  // }
 
   //When the dropdown changes, change the value of resultsType
   function onChange0(value) {
@@ -139,7 +121,7 @@ function App() {
     setResults1Type(value.value);
   }
 
-  function results(type) {
+  function results(type, side) {
     switch (type) {
       case -1:
         return;
@@ -150,6 +132,7 @@ function App() {
             MANDATORYCOURSES={MANDATORYCOURSES}
             currentStudent={currentStudent}
             termsFromStudentStart={termsFromStudentStart}
+            side={side}
           />
         );
       case 1:
@@ -160,6 +143,7 @@ function App() {
             MANDATORYCOURSES={MANDATORYCOURSES}
             currentStudent={currentStudent}
             termsFromStudentStart={termsFromStudentStart}
+            side={side}
           />
         );
       case 2:
@@ -170,6 +154,7 @@ function App() {
             MANDATORYCOURSES={MANDATORYCOURSES}
             currentStudent={currentStudent}
             termsFromStudentStart={termsFromStudentStart}
+            side={side}
           />
         );
       default:
@@ -194,7 +179,7 @@ function App() {
         <br />
         <label htmlFor="currentSemester">
           What is the current semester (in PeopleSoft notation, i.e.
-          2201)?&nbsp;
+          2211)?&nbsp;
         </label>
         <input
           type="number"
@@ -235,7 +220,7 @@ function App() {
               menuPlacement="auto"
             />
             <br />
-            {results(results0Type)}
+            {results(results0Type, 0)}
           </div>
           <div className="results">
             <Select
@@ -247,7 +232,7 @@ function App() {
               menuPlacement="auto"
             />
             <br />
-            {results(results1Type)}
+            {results(results1Type, 1)}
           </div>
         </div>
       )}

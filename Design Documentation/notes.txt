@@ -33,7 +33,6 @@ DoT.js templating?
 
 default values: 1 semester, 20% leeway, 
 
-change percent leeway to grade difference?
 
 remove courses that student has already taken
 show mandatory courses on top
@@ -47,11 +46,8 @@ spacer between mandatory and non-mandatory courses
 
 calculate current term from current date
 
-add median to alt text
-
 add % students passed to each term node in sankey
 
-hover over link, show % 
 
 alt text: % students in that node. 
 alt text for grade: breakdown of + and - grades
@@ -59,4 +55,3 @@ alt text for term:
 
 "preserve term" toggle, match fall/spring/summer of target with results
 
-move future semester and other form questions into bottom section (based on method chosen)

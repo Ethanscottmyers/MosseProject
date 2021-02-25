@@ -123,6 +123,7 @@ function DBResults(props) {
   const MANDATORYCOURSES = props.MANDATORYCOURSES;
   let currentStudent = props.currentStudent;
   let termsFromStudentStart = props.termsFromStudentStart;
+  let side = props.side;
 
   // useEffect(() => {
   //   async function sendQuery() {
@@ -269,6 +270,7 @@ function DBResults(props) {
     let grades = currentStudent.grades;
     for (let i = 0; i < grades.length; i++) {
       let grade = grades[i];
+      if (grade.grade === "0") continue; //0 means they are currently taking the course. skip it.
       if (grade.termsFromStudentStart > termsFromStudentStart) continue;
       if (mandatory && !MANDATORYCOURSES.includes(grade.catalogNumber))
         continue;
@@ -295,54 +297,56 @@ function DBResults(props) {
   return (
     <div>
       <form onSubmit={submitButton}>
-        <label htmlFor="resultSemester">
+        <label htmlFor={"resultSemester" + side}>
           How many semesters into the future from the current semester are you
           looking?&nbsp;
         </label>
         <input
           type="number"
           min="0"
-          id="resultSemester"
-          name="resultSemester"
+          id={"resultSemester" + side}
+          name={"resultSemester" + side}
           value={resultSemesterSTR}
           onChange={(event) => {
             setResultSemester(event.target.value);
           }}
         />
         <br />
-        <label htmlFor="semLeeway">
+        <label htmlFor={"semLeeway" + side}>
           What is the largest allowable difference in semesters?
           <br />0 means courses must match exactly.&nbsp;
         </label>
         <input
           type="number"
-          id="semLeeway"
-          name="semLeeway"
+          id={"semLeeway" + side}
+          name={"semLeeway" + side}
           value={semLeewaySTR}
           onChange={(event) => {
             setSemLeeway(event.target.value);
           }}
         />
         <br />
-        <label htmlFor="gradeLeeway">
+        <label htmlFor={"gradeLeeway" + side}>
           What is the largest allowable difference in grades? <br /> 0 means
           grades must match exactly.&nbsp;
         </label>
         <input
           type="number"
-          id="gradeLeeway"
-          name="gradeLeeway"
+          id={"gradeLeeway" + side}
+          name={"gradeLeeway" + side}
           value={gradeLeewaySTR}
           onChange={(event) => {
             setGradeLeeway(event.target.value);
           }}
         />
         <br />
-        <label htmlFor="mandatory">Use Only Mandatory Courses:&nbsp;</label>
+        <label htmlFor={"mandatory" + side}>
+          Use Only Mandatory Courses:&nbsp;
+        </label>
         <input
           type="checkbox"
-          id="mandatory"
-          name="mandatory"
+          id={"mandatory" + side}
+          name={"mandatory" + side}
           checked={onlyMandatorySTR === "true"}
           onChange={(event) => {
             if (onlyMandatorySTR === "true") {
@@ -355,13 +359,13 @@ function DBResults(props) {
           }}
         />
         <br />
-        <label htmlFor="completed">
+        <label htmlFor={"completed" + side}>
           Only include students who completed all mandatory CS courses:&nbsp;
         </label>
         <input
           type="checkbox"
-          id="completed"
-          name="completed"
+          id={"completed" + side}
+          name={"completed" + side}
           checked={onlyCompletedSTR === "true"}
           onChange={(event) => {
             if (onlyCompletedSTR === "true") {
