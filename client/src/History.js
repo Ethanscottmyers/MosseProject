@@ -111,16 +111,35 @@ function History(props) {
     tableHeader.push(<th key={"header " + i}>Term {i}</th>);
   }
 
-  let table = courseTable.map((row, i) => {
-    let rowJSX = row.map((grade) => {
-      return (
-        <td key={"Term " + i + ", catalog " + grade.catalogNumber}>
-          {grade.catalogNumber}, {grade.grade}, {grade.term}
-        </td>
-      );
-    });
-    return <tr key={"Row Term " + i}>{rowJSX}</tr>;
-  });
+  // let table = courseTable.map((row, i) => {
+  //   let rowJSX = row.map((grade) => {
+  //     return (
+  //       <td key={"Term " + i + ", catalog " + grade.catalogNumber}>
+  //         {grade.catalogNumber}, {grade.grade}, {grade.term}
+  //       </td>
+  //     );
+  //   });
+  //   return <tr key={"Row Term " + i}>{rowJSX}</tr>;
+  // });
+
+  let table = [];
+  for (let i = 0; i < courseTable.length; i++) {
+    let row = courseTable[i];
+    let rowJSX = [];
+    for (let j = 0; j < row.length; j++) {
+      let grade = row[j];
+      if (grade != null) {
+        rowJSX.push(
+          <td key={"Term " + i + ", catalog " + grade.catalogNumber}>
+            {grade.catalogNumber}, {grade.grade}, {grade.term}
+          </td>
+        );
+      } else {
+        rowJSX.push(<td key={"Term " + i + ", null " + j}></td>);
+      }
+    }
+    table.push(<tr key={"Row Term " + i}>{rowJSX}</tr>);
+  }
 
   return (
     <div id="history">

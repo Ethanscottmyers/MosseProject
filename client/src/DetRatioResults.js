@@ -23,10 +23,9 @@ For each student for each cluster:
 */
 //Calculate the distance to each cluster mean using the above formula.
 function calculateDistance(studentVector, matrix) {
-  //studentVector = Y, clusterMean = M, matrix = X. All are arrays (matrix is 2d) of the form specified above.
+  //studentVector = Y, matrix = X. All are arrays (matrix is 2d) of the form specified above.
   let m = mahalanobis(matrix);
   return m.distance(studentVector);
-  // return clusterMean[0]; //temp
 }
 
 //convert letter grade to number equivalent
@@ -156,7 +155,6 @@ function DetRatioResults(props) {
         return a.catalogNumber - b.catalogNumber;
       });
       for (let grade of currentStudent.grades) {
-        if (grade.grade === "0") continue; //0 means they are currently taking the course. skip it.
         if (MANDATORYCOURSES.includes(grade.catalogNumber)) {
           if (!(grade.catalogNumber in studentCourses)) {
             studentCourses[grade.catalogNumber] = true;
@@ -171,12 +169,7 @@ function DetRatioResults(props) {
         `FROM Grades g INNER JOIN Students s ON g.studentID = s.studentID \n` +
         `WHERE catalogNumber IN (${MANDATORYCOURSES}) AND detRatioCluster IS NOT NULL\n` +
         `ORDER BY studentID, termsFromStudentStart`;
-      //   let clusterStudents = await axios.post(
-      //     `http://localhost:9000/database-results`,
-      //     {
-      //       query: sql,
-      //     }
-      //   );
+
       let clusterStudents = await axios.post(
         `http://localhost:9000/database-results`,
         {
@@ -227,6 +220,8 @@ function DetRatioResults(props) {
         }
         masterMatrix[student.cluster].push(tempStudentVector);
       }
+      // console.log(studentVector);
+      // console.log(masterMatrix);
       //masterMatrix is complete. Now we can finally compute distances
       let clusterDistances = [];
       for (let cluster = 0; cluster < numClusters; cluster++) {
@@ -238,9 +233,9 @@ function DetRatioResults(props) {
       }
       //Now clusterDistances should be filled with distances.
       clusterDistances.sort((a, b) => {
-        if (a.distance < b.distance) {
+        if (a.distance < b.distance || isNaN(b.distance)) {
           return -1;
-        } else if (a.distance > b.distance) {
+        } else if (a.distance > b.distance || isNaN(a.distance)) {
           return 1;
         } else {
           return 0;
@@ -418,7 +413,7 @@ function DetRatioResults(props) {
           type="checkbox"
           id={"completed" + side}
           name={"completed" + side}
-          checked="true"
+          checked={true}
           disabled
         />
         <Select
